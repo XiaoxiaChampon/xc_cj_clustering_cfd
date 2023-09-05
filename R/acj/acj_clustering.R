@@ -1,50 +1,62 @@
+# For: profiling and visualization of profiling
 library(profvis)
 
+# For: gam 
 library(mgcv)
 
+# For: cubicspline
+library(pracma)
+
+# For: fpca.face
+library(refund)
+
+# For: FADPclust
+library(FADPclust)
+
+# For: kNNdist
+library(dbscan)
+
+# For: elbow
+devtools::install_github("ahasverus/elbow")
+library(elbow)
+
+# For: rand.index
+library(fossil)
+
+# For: cfda method
+library(cfda)
+
+# For: gather method
+library(tidyverse)
+
+# ---- For: parallelization ----
+# For: foreach loop
 library(foreach)
-library(doParallel)
-library(doRNG)
 
-n.cores <- parallel::detectCores() - 1
-my.cluster <- parallel::makeCluster(n.cores, type = "PSOCK")
-doParallel::registerDoParallel(cl = my.cluster)
-cat("Parellel Registered: ", foreach::getDoParRegistered())
-
-# set.seed(123)
-# x <- foreach(indv = 1:10, .combine=rbind) %do% {
-#   # list("n"=array(rnorm(6), c(2,3)), "a"=sqrt(indv))
-#   # c(indv,sqrt(indv),indv*indv)
-#   cbind(c(1:10) * indv * 1.0, array(30 + indv,10))
-# }
-# dim(x)
-# typeof(x)
-# x
-# array(x)
-#
-#
-# set.seed(123)
-# zz <- NULL
-# pp <- array(0, c(10, 20))
-# for(indv in 1:10)
-# {
-#   pp[indv,] <- cbind(c(1:10) * indv, c(31:40))
-#   # zz <- cbind(zz, c(1:10) * indv)
-# }
-# typeof(pp)
-# pp
-# array(pp)
-
-# print(x)
-#
-# x1 <- as.vector(x[,1])
-# x2 <- as.vector(x[,2])
-# x3 <- as.vector(x[,3])
-# print(x1)
-# print(x2)
-# print(x3)
-#
-# parallel::stopCluster(cl = my.cluster)
+run_parallel <- TRUE
+time_elapsed <- list()
+if(run_parallel)
+{
+  print("RUNNING PARALLEL")
+  
+  # For: makeCluster
+  library(doParallel)
+  
+  # For: %dorng% or registerDoRNG for reproducable parallel random number generation
+  library(doRNG)
+  
+  if(exists("initialized_parallel") && initialized_parallel == TRUE)
+  {
+    parallel::stopCluster(cl = my.cluster)
+  }
+  n.cores <- parallel::detectCores() - 1
+  my.cluster <- parallel::makeCluster(n.cores, type = "PSOCK")
+  doParallel::registerDoParallel(cl = my.cluster)
+  cat("Parellel Registered: ", foreach::getDoParRegistered(), "\n")
+  initialized_parallel <- TRUE
+  
+  # registerDoRNG(123) # ///<<<< THIS CREATES THE ERROR FOR FADPClust !!!
+}
 
 # profvis({
 
@@ -121,6 +133,7 @@ fadp_cluster <- function(mZ1, mZ2, tt=tt, PVE=0.95){
   fdafd2 = fda::smooth.basis(tt, mZ2, fdabasis)$fd
 
   FADlist=list(fdafd1,fdafd2)
+  
   FADP <- FADPclust(fdata = FADlist, cluster = 2:5, method = "FADP1",
                     proportion = seq(0.02, 0.2, 0.02), f.cut = 0.15,
                     pve = PVE, stats = "Avg.silhouette")
@@ -161,7 +174,7 @@ extract_scores_UNIVFPCA <- function (mZ1,mZ2, tt , PVE=0.95)
   delta=0.01
   while (K<2 && count_iter<100) {
     count_iter = count_iter + 1
-    print(cat("count_iter: ", count_iter))
+    cat("count_iter: ", count_iter, "\n")
     K<- which(cumsum( oute$values)/sum(oute$values)>=(PVE+delta))[1]
     delta=delta+0.01
   }
@@ -193,14 +206,26 @@ trapzfnum <- function(yy,yy2)
 #Function to use trapzfnum function and find L2 distance for 2D array, n of them
 mse_bw_matrix <- function(truecurve,estcurve)
 {
-  n=dim(truecurve)[2]
-  datapoints=dim(truecurve)[1]
-  mseall=c(0)
-  ######could probably use apply function here it's also subject level
-  for (i in 1:n)
+  trapzfnum <- function(yy,yy2)
   {
-    mseall[i]=trapzfnum(truecurve[,i],estcurve[,i])
+    st=0.0001
+    et=1
+    x=seq(st,et,length=5000)
+    xx=seq(st,et,length=length(yy))
+    y1 <- cubicspline(xx, yy,x)
+    y2 <- cubicspline(xx, yy2,x)
+    out=sqrt(trapz(x, (y1-y2)^2) )
+    return(out)
   }
+  
+  n=dim(truecurve)[2]
+  # datapoints=dim(truecurve)[1]
+  # mseall=c(0)
+  ######could probably use apply function here it's also subject level
+  mseall <- foreach(i = 1:n, .combine = c, .packages = c("pracma")) %dorng% {
+    return(rbind(trapzfnum(truecurve[,i], estcurve[,i])))
+  }
+  
   return(mseall)
 }
 
@@ -226,23 +251,78 @@ trapzfnump <- function(yy,yy2)
 #Function to use trapzfnump function and find Hellinger distance for 2D array, n of them
 mse_bw_matrixp <- function(truecurve,estcurve)
 {
-  n=dim(truecurve)[2]
-  datapoints= dim(truecurve)[1]
-  mseall=c(0)
-  ######could probably use apply function here it's also subject level
-  for (i in 1:n)
+  trapzfnump <- function(yy,yy2)
   {
-    mseall[i]=trapzfnump(truecurve[,i],estcurve[,i])/sqrt(2)
+    st=0.0001
+    et=1
+    x=seq(st,et,length=5000)
+    xx=seq(st,et,length=length(yy))
+    y1 <- cubicspline(xx, yy,x)
+    y1[y1<0]=0
+    y2 <- cubicspline(xx, yy2,x)
+    y2[y2<0]=0
+    out=sqrt(trapz(x, (sqrt(y1)-sqrt(y2))^2) )
+    return(out)
   }
+  
+  n=dim(truecurve)[2]
+  # datapoints= dim(truecurve)[1]
+  # mseall=c(0)
+  # ######could probably use apply function here it's also subject level
+  # for (i in 1:n)
+  # {
+  #   mseall[i]=trapzfnump(truecurve[,i],estcurve[,i])/sqrt(2)
+  # }
+  
+  sqrt_2 <- sqrt(2)
+  mseall <- foreach(i = 1:n, .combine = c, .packages = c("pracma")) %dorng% {
+    return(rbind(trapzfnump(truecurve[,i], estcurve[,i])/sqrt_2))
+  }
+  
   return(mseall)
 }
 
+
+#cfda
+####
+#write a function to produce the scores
+#input one  X_nt matrix n*t: 1 of  Nth simulation, n*t* N
+#output scores matrix for that specific Nth simulation   n*M     M is the column number of scores
+cfda_score_function <- function(cfda_data, nCores,timestamps01,basis_num ){
+  cfda_data <- t(cfda_data)
+  timeseries_length <- dim(cfda_data)[2]
+  times <- seq(1,timeseries_length,by=1)
+  colnames(cfda_data) <- paste0("time_",times)
+  time <- rep(timestamps01 ,times=dim(cfda_data)[1])
+  subjects <- seq(1,dim(cfda_data)[1],by=1)
+  cfda_new <- data.frame(cbind(cfda_data,subjects))
+  data_long <- gather(cfda_new, time_t, state, paste0("time_",times[1]):paste0("time_",times[timeseries_length]),factor_key=TRUE)
+  cfda_d <- data_long%>%arrange(subjects)%>%dplyr::rename(id=subjects)%>%dplyr::select(id,state)
+  cfda_final <- data.frame(cbind(cfda_d,time))
+  Tmax <- max(cfda_final$time)
+  cfda_cut <- cut_data(cfda_final, Tmax = Tmax)
+  b <- create.bspline.basis(c(0, Tmax), nbasis = basis_num, norder = 4)
+  fmca <- compute_optimal_encoding(cfda_cut, b, nCores =nCores, verbose = FALSE)
+  delta <- 0.01
+  pve <- 0.95
+  nPc90 <-which(cumsum(prop.table(fmca$eigenvalues)) > pve)[1]
+  while (nPc90<2 && pve < 1){
+    pve <- pve+delta
+    nPc90 <-which(cumsum(prop.table(fmca$eigenvalues)) > pve)[1]
+  }
+  cfda_score <- fmca$pc[, 1:nPc90]
+  return(cfda_score)
+}
+
+
+
+
 ClusterSimulation <- function(num_indvs, timeseries_length,
-                              scenario, num_replicas,
-                              seed_cluster=1230, seed_cfd=9876)
+                              scenario, num_replicas, est_choice, run_hellinger)
 {
   cat("Cluster Simulation\nNum Indvs:\t", num_indvs,
       "\nTimeseries Len:\t", timeseries_length,
+      "\nScenario:\t", scenario,
       "\nNum Replicas:\t", num_replicas)
 
   occur_fraction <- GetOccurrenceFractions(scenario)
@@ -262,14 +342,36 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
   true_kmeans <- est_kmeans  <- NULL # records clustering membership on the TRUE SCORES/ESTIMATED SCORES
   true_fadp <- est_fadp <-  NULL # records clustering membership on the TRUE Z/ESTIMATED Z
   true_dbscan <- est_dbscan <-  NULL
+  
+  time_elapsed <<- list()
+  # "Xiaoxia"=NULL, "univfpca"=NULL, "kmeans"=NULL, "fadp"=NULL, "dbscan"=NULL, "cfd"=NULL)
+  last_time <- 0
+  row_name <- NULL
+  timeKeeperStart <- function(rn)
+  {
+    row_name <<- rn
+    if(FALSE == row_name %in% names(time_elapsed))
+    {
+      time_elapsed[[row_name]] <<- NULL
+    }
+    last_time <<- Sys.time()
+  }
+  timeKeeperNext <- function()
+  {
+    this_time <- Sys.time()
+    this_section_time <- this_time - last_time
+    time_elapsed[[row_name]] <<- append(time_elapsed[[row_name]], this_section_time)
+    last_time <<- this_time
+  }
 
   for(replica_idx in 1:num_replicas)
   {
-    cat("\nReplica: ", replica_idx)
+    cat("\nReplica: ", replica_idx, "\n")
 
     # generate clusters
-    set.seed(seed_cluster + 100 * replica_idx)
-    cat("\nCluster", replica_idx, " --> seed: ", seed_cluster + 100 * replica_idx, "\n")
+    # set.seed(seed_cluster + 100 * replica_idx)
+    # cat("\nCluster", replica_idx, " --> seed: ", seed_cluster + 100 * replica_idx, "\n")
+    cat("Cluster", replica_idx, "\n")
 
     cluster_f1 <- GenerateClusterData(1, scenario, 3, cluster_allocation[1], timeseries_length)
     cluster_f2 <- GenerateClusterData(2, scenario, 3, cluster_allocation[2], timeseries_length)
@@ -286,8 +388,9 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
     prob_curves <- list(p1=p1, p2=p2, p3=p3)
 
     # generate categFuncData
-    set.seed(seed_cfd + 100 * replica_idx)
-    cat("\nCategFD", replica_idx, " --> seed: ", seed_cfd + 100 * replica_idx)
+    # set.seed(seed_cfd + 100 * replica_idx)
+    # cat("\nCategFD", replica_idx, " --> seed: ", seed_cfd + 100 * replica_idx, "\n")
+    cat("CategFD", replica_idx, "\n")
 
     categ_func_data_list <- GenerateCategFuncData(prob_curves)
 
@@ -334,9 +437,9 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
         # what is this 3 ?? arbitrarily chosen?
         categ_func_data_list$W[, indv] <- new_categ_func_data_list$W[, 3]
         Z1[, indv] <- new_cluster_data$Z1[, 3] # latent curves Z1 and Z2
+        categ_func_data_list$X[indv, , ] <- 0
         Z2[, indv] <- new_cluster_data$Z2[, 3]
 
-        categ_func_data_list$X[indv, , ] <- 0
         for (this_time in 1:timeseries_length)
         {
           categ_func_data_list$X[indv, this_time, which(Q_vals == categ_func_data_list$W[, indv][this_time])] <- 1
@@ -350,10 +453,13 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
     } # end for(indv in 1:num_indvs)
 
     #Estimation
+    cat("EstimateCategFuncData", replica_idx, "\n")
     timestamps01 <- seq(from = 0.0001, to = 1, length=timeseries_length)
-    categFD_est <- EstimateCategFuncData(timestamps01, X=categ_func_data_list$X)
+    timeKeeperStart("Xiaoxia")
+    categFD_est <- EstimateCategFuncData(est_choice, timestamps01, categ_func_data_list$W)
+    timeKeeperNext()
 
-    if (num_indvs == 100 && scenario == "A")
+    if (run_hellinger)
     {
       # evaluate performance Z and P
       rmse1_temp <- c(by(mse_bw_matrix(Z1,categFD_est$Z1_est) , true_cluster, mean))
@@ -373,38 +479,60 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
 
     # Record clustering performance. USE only Z
     #**** extract_scores_UNIVFPCA is the FASTEST
+    
     mfpca_true <-extract_scores_UNIVFPCA(mZ1=Z1, mZ2=Z2,  tt=timestamps01 , PVE=0.95)
     #plot(  scores_true$scores[, 1:2])
+    timeKeeperStart("univfpca")
     mfpca_est <- extract_scores_UNIVFPCA(mZ1=categFD_est$Z1_est, mZ2=categFD_est$Z2_est, tt=timestamps01, PVE=0.95)
-
+    timeKeeperNext()
+    
     #KMEANS
     true_kmeans_temp <- kmeans_cluster(data=mfpca_true$scores)$label
+    timeKeeperStart("kmeans")
     est_kmeans_temp <- kmeans_cluster(data=mfpca_est$scores)$label
-
+    timeKeeperNext()
+    
     #FADP
     true_fadp_temp <- fadp_cluster(mZ1=Z1, mZ2=Z2, tt=timestamps01)$label
+    timeKeeperStart("fadp")
     est_fadp_temp <- fadp_cluster(mZ1=categFD_est$Z1_est, mZ2=categFD_est$Z2_est, tt=timestamps01)$label
-
+    timeKeeperNext()
     #dbscan
     true_dbscan_temp <- dbscan_cluster(data=mfpca_true$scores,1)$label
+    timeKeeperStart("dbscan")
     est_dbscan_temp <- dbscan_cluster(data=mfpca_est$scores,1)$label
-
+    timeKeeperNext()
+    ##dbscan cfda
+    basis_num <- 10
+    nCores= n.cores
+    true_dbscan_temp_cfda <- true_cluster_db
+    parallel::stopCluster(cl = my.cluster)
+    timeKeeperStart("cfd")
+    cfd_scores <- cfda_score_function(categ_func_data_list$W, nCores,timestamps01,basis_num )
+    my.cluster <- parallel::makeCluster(n.cores, type = "PSOCK")
+    doParallel::registerDoParallel(cl = my.cluster)
+    cat("Parellel Registered: ", foreach::getDoParRegistered(), "\n")
+    est_dbscan_temp_cfda <- dbscan_cluster(data=cfd_scores,1)$label
+    timeKeeperNext()
     #record results
     true_dbscan<- cbind(true_dbscan, true_dbscan_temp)
     est_dbscan <- cbind(est_dbscan, est_dbscan_temp)
+    
+    true_dbscan_cfda<- cbind(true_dbscan, true_dbscan_temp_cfda)
+    est_dbscan_cfda <- cbind(est_dbscan, est_dbscan_temp_cfda)
 
     true_kmeans<- cbind(true_kmeans, true_kmeans_temp)
     est_kmeans <- cbind(est_kmeans,  est_kmeans_temp)
 
     true_fadp<- cbind(true_fadp, true_fadp_temp)
     est_fadp <- cbind(est_fadp, est_fadp_temp)
-    print(replica_idx)
-
+    
+    cat("Done replica:", replica_idx, "\n")
   } # END of "for(replica_idx in 1:num_replicas)'
 
   cat("\n replicas done \n")
-
-  if (num_indvs == 100 && scenario == "A")
+  
+  if (run_hellinger)
   {
     # Assess accuracy in the simulation study
     mse_sim= apply(rmse, c(2,3), mean)
@@ -428,7 +556,21 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
       evaluate_cluster(true_cluster=true_cluster_db, new_cluster=cluster,0)$ari),
     est_dbscan_cpn=apply(est_dbscan, 2, function(cluster)
       evaluate_cluster(true_cluster=true_cluster_db, new_cluster=cluster,0)$cpn),
-
+   #dbscan cfda
+   true_dbscan_ri_cfda=apply(true_dbscan_cfda, 2, function(cluster)
+     evaluate_cluster(true_cluster=true_cluster_db, new_cluster=cluster,0)$ri),
+   true_dbscan_ari_cfda=apply(true_dbscan_cfda, 2, function(cluster)
+     evaluate_cluster(true_cluster=true_cluster_db, new_cluster=cluster,0)$ari),
+   true_dbscan_cpn_cfda=apply(true_dbscan_cfda, 2, function(cluster)
+     evaluate_cluster(true_cluster=true_cluster_db, new_cluster=cluster,0)$cpn),
+   
+   
+   est_dbscan_ri_cfda=apply(est_dbscan_cfda, 2, function(cluster)
+     evaluate_cluster(true_cluster=true_cluster_db, new_cluster=cluster,0)$ri),
+   est_dbscan_ari_cfda=apply(est_dbscan_cfda, 2, function(cluster)
+     evaluate_cluster(true_cluster=true_cluster_db, new_cluster=cluster,0)$ari),
+   est_dbscan_cpn_cfda=apply(est_dbscan_cfda, 2, function(cluster)
+     evaluate_cluster(true_cluster=true_cluster_db, new_cluster=cluster,0)$cpn),
     ###kmeans
     true_kmeans_ri=apply(true_kmeans, 2, function(cluster)
       evaluate_cluster(true_cluster=true_cluster, new_cluster=cluster,3)$ri),
@@ -464,106 +606,290 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
 
   )
 
-
-
-  cluster_table_true=c(mean(results$true_fadp_ri),mean(results$true_fadp_ari), mean(results$true_fadp_cpn),
-                       mean(results$true_kmeans_ri),mean(results$true_kmeans_ari),mean(results$true_kmeans_cpn),
+  print("cluster_table")
+  cluster_table_true=c(mean(results$true_dbscan_ri_cfda),
+                       mean(results$true_dbscan_ari_cfda),
+                       mean(results$true_dbscan_cpn_cfda),
+                       
+                       mean(results$true_fadp_ri),
+                       mean(results$true_fadp_ari),
+                       mean(results$true_fadp_cpn),
+                       
+                       mean(results$true_kmeans_ri),
+                       mean(results$true_kmeans_ari),
+                       mean(results$true_kmeans_cpn),
 
                        mean(results$true_dbscan_ri),
                        mean(results$true_dbscan_ari),
                        mean(results$true_dbscan_cpn)
   )
-  names(cluster_table_true)=c("fadp RI","fadp ARI","fadp cpn",
+  names(cluster_table_true)=c("cfda-db RI","cfda-db ARI","cfda-db cpn",
+                              "fadp RI","fadp ARI","fadp cpn",
                               "kmeans RI","kmeans ARI","kmeans cpn",
                               "dbscan RI","dbscan ARI","dbscan cpn"
-  )
+                              )
 
 
-  cluster_table_est=c(mean(results$est_fadp_ri),mean(results$est_fadp_ari),
+  cluster_table_est=c( mean(results$est_dbscan_ri_cfda),
+                       mean(results$est_dbscan_ari_cfda),
+                       mean(results$est_dbscan_cpn_cfda),
+                            
+                      mean(results$est_fadp_ri),
+                      mean(results$est_fadp_ari),
 
                       mean(results$est_fadp_cpn),
 
 
-                      mean(results$est_kmeans_ri),mean(results$est_kmeans_ari),
+                      mean(results$est_kmeans_ri),
+                      mean(results$est_kmeans_ari),
                       mean(results$est_kmeans_cpn),
+                      
                       mean(results$est_dbscan_ri),
-                      mean(results$est_dbscan_ari),mean(results$est_dbscan_cpn)
+                      mean(results$est_dbscan_ari),
+                      mean(results$est_dbscan_cpn)
   )
-  names(cluster_table_est)=c("fadp RI","fadp ARI","fadp cpn",
+  names(cluster_table_est)=c("cfda-db RI","cfda-db ARI","cfda-db cpn",
+                              "fadp RI","fadp ARI","fadp cpn",
                              "kmeans RI","kmeans ARI","kmeans cpn",
                              "dbscan RI","dbscan ARI","dbscan cpn"
-  )
+                            )
 
 
-  cluster_table_est_se=c(sd(results$est_fadp_ri)/sqrt(num_replicas),sd(results$est_fadp_ari)/sqrt(num_replicas),
+  cluster_table_est_se=c(sd(results$est_dbscan_ri_cfda)/sqrt(num_replicas),
+                         sd(results$est_dbscan_ari_cfda)/sqrt(num_replicas),
+                         sd(results$est_dbscan_cpn_cfda)/sqrt(num_replicas),
+                          
+                          sd(results$est_fadp_ri)/sqrt(num_replicas),
+                         sd(results$est_fadp_ari)/sqrt(num_replicas),
 
                          sd(results$est_fadp_cpn)/sqrt(num_replicas),
 
 
-                         sd(results$est_kmeans_ri)/sqrt(num_replicas),sd(results$est_kmeans_ari)/sqrt(num_replicas),
+                         sd(results$est_kmeans_ri)/sqrt(num_replicas),
+                         sd(results$est_kmeans_ari)/sqrt(num_replicas),
                          sd(results$est_kmeans_cpn)/sqrt(num_replicas),
+                         
                          sd(results$est_dbscan_ri)/sqrt(num_replicas),
-                         sd(results$est_dbscan_ari)/sqrt(num_replicas),sd(results$est_dbscan_cpn)/sqrt(num_replicas)
-  )
-  names(cluster_table_est_se)=c("fadp RI","fadp ARI","fadp cpn",
+                         sd(results$est_dbscan_ari)/sqrt(num_replicas),
+                         sd(results$est_dbscan_cpn)/sqrt(num_replicas))
+  names(cluster_table_est_se)=c("cfda-db RI","cfda-db ARI","cfda-db cpn",
+                                "fadp RI","fadp ARI","fadp cpn",
                                 "kmeans RI","kmeans ARI","kmeans cpn",
-                                "dbscan RI","dbscan ARI","dbscan cpn"
-  )
-
-  if (num_indvs == 100 && scenario == "A"){
-    return(list("cluster_table_true"=cluster_table_true,"cluster_table_est"=cluster_table_est,
-                "cluster_table_est_se"=cluster_table_est_se,"mse"=mse_sim,"hellinger"=hellinger_sim))
-
-  }
-
-  else{
-    return(list("cluster_table_true"=cluster_table_true,"cluster_table_est"=cluster_table_est,
-                "cluster_table_est_se"=cluster_table_est_se))
-
-  }
-}
-
-#' Runs gam on the given data and returns results
-#' Fits a binomial to describe the given in_x
-#' @param timestamps01 current time value
-#' @param in_x binary series
-#' @return fit values and linear predictors both with length of time_series length
-RunGam <- function(timestamps01, in_x, basis_size, method)
-{
-  basis_size_rev_1 <- max(min(round(min(sum(in_x), sum(1-in_x))/2), basis_size ), 5)
-
-  fit_binom_1 <- gam(in_x~s(timestamps01, bs = "cr", m=2, k = basis_size_rev_1),
-                     family=binomial(link="probit"), method = method,
-                     control=list(maxit = 500,mgcv.tol=1e-4,epsilon = 1e-04),
-                     optimizer=c("outer","bfgs"))
-  p1 <- fit_binom_1$fitted.values
-  p1_linpred <- fit_binom_1$linear.predictors
-
-  return(list(prob=p1, linpred=p1_linpred))
-}
-
-EstimateCategFuncData <- function(timestamps01, X=NULL, W=NULL, basis_size=25, method="ML", sim=TRUE)
-{
-  if(is.null(X)) sim<-FALSE
-
-  if(!sim)
+                                "dbscan RI","dbscan ARI","dbscan cpn")
+  print("returning")
+  
+  save(time_elapsed, file=paste("time_elapsed_", num_indvs, "_", timeseries_length, "_",
+                                scenario, "_", num_replicas, "_", est_choice, "_", run_hellinger, ".RData", sep=""))
+  
+  return_vals <- list("cluster_table_true"=cluster_table_true,"cluster_table_est"=cluster_table_est,
+       "cluster_table_est_se"=cluster_table_est_se)
+  
+  if (run_hellinger)
   {
-    num_indv<- ncol(W)
-    timeseries_length <-nrow(W)
-    category_count<- length(unique(c(W)))
-    Q_vals <- unique(c(W))
-    if(is.numeric(Q_vals)) Q_vals<- sort(Q_vals)
+    return_vals$mse <- mse_sim
+    return_vals$hellinger <- hellinger_sim
+  }
+  return(return_vals)
+}
 
-    X<- array(0, c(num_indv,timeseries_length,category_count))
-    for(indv in 1:num_indv)
+#' Function to produce functional dummy variables X from categorical functional data W
+#' @param W 2D array, t*n: t is the timestamp and n is the number of the observation
+#' @return X 3D array, n*t*Q, Q: the total number of the category
+GetXFromW <- function(W)
+{
+  num_indv <- ncol(W)
+  timeseries_length <-nrow(W)
+  category_count<- length(unique(c(W)))
+  Q_vals <- unique(c(W))
+  if(is.numeric(Q_vals)) Q_vals<- sort(Q_vals)
+  
+  X<- array(0, c(num_indv,timeseries_length,category_count))
+  for(indv in 1:num_indv)
+  {
+    for(timestamps01 in 1:timeseries_length)
     {
-      for(timestamps01 in 1:timeseries_length)
-      {
-        X[indv, timestamps01, which(Q_vals==W[, indv][timestamps01])] <- 1
-      }
+      X[indv, timestamps01, which(Q_vals==W[, indv][timestamps01])] <- 1
     }
   }
+  return(X)
+}
 
+#' Function to select 
+#' @param choice "probit", "binomial", or "
+EstimateCategFuncData <- function(choice, timestamps01, W, basis_size=25, method="ML")
+{
+  if(choice == "probit"){
+    X <- GetXFromW(W)
+    return(EstimateCategFuncData_probit(timestamps01, X, basis_size=25, method="ML"))
+  }else if(choice == "binormial"){
+    X <- GetXFromW(W)
+    return(EstimateCategFuncData_binorm(timestamps01, X, basis_size=25, method="ML"))
+  }else if(choice == "multinormial"){
+    return(EstimateCategFuncData_multinormial(timestamps01, W, basis_size=25, method="ML"))
+  }
+}
+
+#'Function to estimate z and p using wood_multinormial
+#'
+
+EstimateCategFuncData_multinormial <- function(timestamps01, W, basis_size=25, method="ML")
+{
+  
+  num_indv<- ncol(W)
+  timeseries_length <-nrow(W)
+
+  Z<-NULL
+  prob<-array(0, c(num_indv, timeseries_length , 3))
+  for (i in 1:num_indv){
+    fit_binom<-gam(list(W[,i]-1~s(timestamps01,bs = "cr", m=2, k = basis_size),
+                        ~s(timestamps01,bs = "cr", m=2, k = basis_size)),
+                   family=multinom(K=2), method = method,
+                   control=list(maxit = 500,mgcv.tol=1e-4,epsilon = 1e-04),
+                   optimizer=c("outer","bfgs")) 
+    p1 <- fit_binom$fitted.values[,1]
+    p2 <- fit_binom$fitted.values[,2]
+    prob[i,,] <- cbind(p1, p2, 1-p1-p2)
+    
+    z1<- fit_binom$linear.predictors[,1]
+    z2<- fit_binom$linear.predictors[,2]
+    Z<- cbind(Z, c(z1,z2))
+    
+  }
+  
+  return(list(Z1_est=Z[1:timeseries_length ,], Z2_est=Z[1:timeseries_length +timeseries_length ,], 
+              p1_est=t(prob[,,1]), p2_est=t(prob[,,2]), p3_est=t(prob[,,3]) ))
+}
+
+
+
+
+EstimateCategFuncData_probit <- function(timestamps01, X, basis_size=25, method="ML")
+{
+  num_indv<- dim(X)[1]
+  timeseries_length<- dim(X)[2]
+  category_count <- dim(X)[3]
+
+  Z<-NULL
+  p<-array(0, c(num_indv, timeseries_length, category_count))
+  # for (indv in 1:num_indv){
+  #   #i=93
+  #   #basis_size=25
+  #   x1<- X[indv,,1]
+  #   x2<- X[indv,,2]
+  #   x3<- X[indv,,3]
+  # 
+  #   if (timeseries_length<=301 && sum(x1)/timeseries_length<0.004){
+  # 
+  #     gam_result_1 <- RunGam(timestamps01, x1, "probit", basis_size, method)
+  #     p1 <- gam_result_1$prob
+  #     p1_linpred <- gam_result_1$linpred
+  # 
+  #     gam_result_2 <- RunGam(timestamps01, x2, "probit", basis_size, method)
+  #     p2 <- gam_result_2$prob
+  #     p2_linpred <- gam_result_2$linpred
+  # 
+  #     gam_result_3 <- RunGam(timestamps01, x3, "probit", basis_size, method)
+  #     p3 <- gam_result_3$prob
+  #     p3_linpred <- gam_result_3$linpred
+  #     denominator_p <- 1+exp(p3_linpred)
+  #     z1<- (p1_linpred-p3_linpred)-log( (1+exp(p1_linpred))/(denominator_p))
+  #     z2<- (p2_linpred-p3_linpred)-log( (1+exp(p2_linpred))/(denominator_p))
+  #   }else{
+  #     gam_result_1 <- RunGam(timestamps01, x1, "binomial", basis_size, method)
+  #     p1 <- gam_result_1$prob
+  #     p1_linpred <- gam_result_1$linpred
+  # 
+  #     gam_result_2 <- RunGam(timestamps01, x2, "binomial", basis_size, method)
+  #     p2 <- gam_result_2$prob
+  #     p2_linpred <- gam_result_2$linpred
+  # 
+  #     gam_result_3 <- RunGam(timestamps01, x3, "binomial", basis_size, method)
+  #     p3 <- gam_result_3$prob
+  #     p3_linpred <- gam_result_3$linpred
+  # 
+  #     # estimate the latent curves Z
+  #     exp_p3_linepred <- exp(p3_linpred)
+  #     z1 <- (p1_linpred-p3_linpred)-log( (1+exp(p1_linpred))/(1+exp_p3_linepred))
+  #     z2 <- (p2_linpred-p3_linpred)-log( (1+exp(p2_linpred))/(1+exp_p3_linepred))
+  # 
+  # 
+  #   } # end if special case for probit
+  # 
+  #   Z <- cbind(Z, c(z1,z2))
+  #   psum <- (p1+p2+p3)
+  #   p[indv,,] <- cbind(p1/psum, p2/psum, p3/psum)
+  # }
+  # return(list(Z1_est=Z[1:timeseries_length,],
+  #             Z2_est=Z[1:timeseries_length+timeseries_length,],
+  #             p1_est=t(p[,,1]),
+  #             p2_est=t(p[,,2]),
+  #             p3_est=t(p[,,3]) ))
+  
+  zp <- foreach (indv = 1:num_indv, .combine = cbind, .init = NULL, .packages = c("mgcv")) %dorng%
+  {
+    source("R/acj/run_gam_function.R")
+    
+    x1<- X[indv,,1]
+    x2<- X[indv,,2]
+    x3<- X[indv,,3]
+    
+    if (timeseries_length<=301 && sum(x1)/timeseries_length<0.004){
+      
+      gam_result_1 <- RunGam(timestamps01, x1, "probit", basis_size, method)
+      p1 <- gam_result_1$prob
+      p1_linpred <- gam_result_1$linpred
+      
+      gam_result_2 <- RunGam(timestamps01, x2, "probit", basis_size, method)
+      p2 <- gam_result_2$prob
+      p2_linpred <- gam_result_2$linpred
+      
+      gam_result_3 <- RunGam(timestamps01, x3, "probit", basis_size, method)
+      p3 <- gam_result_3$prob
+      p3_linpred <- gam_result_3$linpred
+      denominator_p <- 1+exp(p3_linpred)
+      z1<- (p1_linpred-p3_linpred)-log( (1+exp(p1_linpred))/(denominator_p))
+      z2<- (p2_linpred-p3_linpred)-log( (1+exp(p2_linpred))/(denominator_p))
+    }else{
+      gam_result_1 <- RunGam(timestamps01, x1, "binomial", basis_size, method)
+      p1 <- gam_result_1$prob
+      p1_linpred <- gam_result_1$linpred
+      
+      gam_result_2 <- RunGam(timestamps01, x2, "binomial", basis_size, method)
+      p2 <- gam_result_2$prob
+      p2_linpred <- gam_result_2$linpred
+      
+      gam_result_3 <- RunGam(timestamps01, x3, "binomial", basis_size, method)
+      p3 <- gam_result_3$prob
+      p3_linpred <- gam_result_3$linpred
+      
+      # estimate the latent curves Z
+      denominator_p <- 1 + exp(p3_linpred)
+      z1 <- (p1_linpred-p3_linpred)-log( (1+exp(p1_linpred))/(denominator_p))
+      z2 <- (p2_linpred-p3_linpred)-log( (1+exp(p2_linpred))/(denominator_p))
+      
+      
+    } # end if special case for probit
+    
+    psum <- p1 + p2 + p3
+    return(c(c(z1,z2), cbind(p1/psum, p2/psum, p3/psum)))
+  }
+  # Unravel the two variables from zp
+  z_rows_count <- timeseries_length * 2
+  Z <- array(zp[1:z_rows_count, ], c(z_rows_count, num_indv))
+  p <- array(t(matrix(zp[(z_rows_count + 1):dim(zp)[1], ], ncol=num_indv)), c(num_indv, timeseries_length, category_count))
+  
+
+  return(list(Z1_est=Z[1:timeseries_length,],
+            Z2_est=Z[1:timeseries_length+timeseries_length,],
+            p1_est=t(p[,,1]),
+            p2_est=t(p[,,2]),
+            p3_est=t(p[,,3]) ))
+}
+
+
+
+EstimateCategFuncData_binorm <- function(timestamps01, X, basis_size=25, method="ML")
+{
   num_indv<- dim(X)[1]
   timeseries_length<- dim(X)[2]
   category_count <- dim(X)[3]
@@ -587,15 +913,15 @@ EstimateCategFuncData <- function(timestamps01, X=NULL, W=NULL, basis_size=25, m
 #     ###################################################
 #     ##updated estimation
 #
-#     gam_result_1 <- RunGam(timestamps01, x1, basis_size, method)
+#     gam_result_1 <- RunGam(timestamps01, x1, "binomial", basis_size, method)
 #     p1 <- gam_result_1$prob
 #     p1_linpred <- gam_result_1$linpred
 #
-#     gam_result_2 <- RunGam(timestamps01, x2, basis_size, method)
+#     gam_result_2 <- RunGam(timestamps01, x2, "binomial", basis_size, method)
 #     p2 <- gam_result_2$prob
 #     p2_linpred <- gam_result_2$linpred
 #
-#     gam_result_3 <- RunGam(timestamps01, x3, basis_size, method)
+#     gam_result_3 <- RunGam(timestamps01, x3, "binomial", basis_size, method)
 #     p3 <- gam_result_3$prob
 #     p3_linpred <- gam_result_3$linpred
 #
@@ -611,54 +937,33 @@ EstimateCategFuncData <- function(timestamps01, X=NULL, W=NULL, basis_size=25, m
 # return(p)
 # return(list(Z=Z,p=p))
 
-  #///////REDEF FOR PAR
-  RunGam <- function(timestamps01, in_x, basis_size, method)
-  {
-    basis_size_rev_1 <- max(min(round(min(sum(in_x), sum(1-in_x))/2), basis_size ), 5)
-
-    fit_binom_1 <- gam(in_x~s(timestamps01, bs = "cr", m=2, k = basis_size_rev_1),
-                       family=binomial(link="probit"), method = method,
-                       control=list(maxit = 500,mgcv.tol=1e-4,epsilon = 1e-04),
-                       optimizer=c("outer","bfgs"))
-    p1 <- fit_binom_1$fitted.values
-    p1_linpred <- fit_binom_1$linear.predictors
-
-    return(list(prob=p1, linpred=p1_linpred))
-  }#///////REDEF FOR PAR
 
   zp <- foreach (indv = 1:num_indv, .combine = cbind, .init = NULL, .packages = c("mgcv")) %dorng%
   {
+    source("R/acj/run_gam_function.R")
+    
     x1<- X[indv,,1]
     x2<- X[indv,,2]
     x3<- X[indv,,3]
 
-    # fit the Binom model
-    ###################################################
-    ###################################################
-    ##updated estimation
-
-    gam_result_1 <- RunGam(timestamps01, x1, basis_size, method)
+    gam_result_1 <- RunGam(timestamps01, x1, "binomial", basis_size, method)
     p1 <- gam_result_1$prob
     p1_linpred <- gam_result_1$linpred
 
-    gam_result_2 <- RunGam(timestamps01, x2, basis_size, method)
+    gam_result_2 <- RunGam(timestamps01, x2, "binomial", basis_size, method)
     p2 <- gam_result_2$prob
     p2_linpred <- gam_result_2$linpred
 
-    gam_result_3 <- RunGam(timestamps01, x3, basis_size, method)
+    gam_result_3 <- RunGam(timestamps01, x3, "binomial", basis_size, method)
     p3 <- gam_result_3$prob
     p3_linpred <- gam_result_3$linpred
 
     # estimate the latent tranjecotries Z
-    exp_p3_linepred <- exp(p3_linpred)
-    z1 <- (p1_linpred-p3_linpred)-log( (1+exp(p1_linpred))/(1+exp_p3_linepred))
-    z2 <- (p2_linpred-p3_linpred)-log( (1+exp(p2_linpred))/(1+exp_p3_linepred))
+    denominator_p <- 1 + exp(p3_linpred)
+    z1 <- (p1_linpred-p3_linpred)-log( (1+exp(p1_linpred))/(denominator_p))
+    z2 <- (p2_linpred-p3_linpred)-log( (1+exp(p2_linpred))/(denominator_p))
+    
     psum <- p1 + p2 + p3
-
-    # Z <- cbind(Z, c(z1,z2))
-
-    # p[indv,,] <- cbind(p1/psum, p2/psum, p3/psum)
-    # return(cbind(p1/psum, p2/psum, p3/psum))
     return(c(c(z1,z2), cbind(p1/psum, p2/psum, p3/psum)))
   }
   # Unravel the two variables from zp
@@ -672,6 +977,8 @@ EstimateCategFuncData <- function(timestamps01, X=NULL, W=NULL, basis_size=25, m
               p2_est=t(p[,,2]),
               p3_est=t(p[,,3]) ))
 }
+
+
 
 GenerateCategFuncData <- function(prob_curves)
 {
@@ -782,10 +1089,10 @@ GetMuAndScore <- function(setting, scenario, k)
 #' Generate cluster data for a given scenario
 #' @param num_indvs number of individuals
 #' @param timeseries_length length of time-series as an integer
-#' @param k description?? number of psi functions
-#' @param mu_1 description??
-#' @param mu_2 description??
-#' @param score_vals description??
+#' @param k  number of eigen(psi) functions
+#' @param mu_1 mean function for the first latent curve
+#' @param mu_2 mean function for the second latent curve
+#' @param score_vals the variance of the principal component scores
 #'
 GenerateClusterDataScenario <- function(num_indvs,
                                  timeseries_length,
@@ -797,7 +1104,7 @@ GenerateClusterDataScenario <- function(num_indvs,
   timestamps01 <- seq(from = 0.0001, to = 1, length=timeseries_length)
 
   # noise octaves
-  cat("octave", num_indvs, k, num_indvs * k, "\n")
+  # cat("octave", num_indvs, k, num_indvs * k, "\n")
   scores_standard <- matrix(rnorm(num_indvs * k), ncol = k)
   scores <- scores_standard %*% diag(sqrt(score_vals))
 
@@ -832,10 +1139,201 @@ PsiFunc <- function(klen, timestamps01)
 
 # EXECUTION:
 
-result_par <- ClusterSimulation(100, 300, "A", 2)
-
-print(result_par)
+set.seed(123)
 
 # }) # profvis end
 
-parallel::stopCluster(cl = my.cluster)
+# ////////////// A Scenario BEGIN ///////////////////////////
+
+n100t300A=ClusterSimulation(100,300,"A",100,"probit",TRUE)
+n100t750A=ClusterSimulation(100,750,"A",100,"probit",TRUE)
+n100t2000A=ClusterSimulation(100,2000,"A",100,"probit",TRUE)
+n500t300A=ClusterSimulation(500,300,"A",100,"probit",TRUE)
+
+n500t750A=ClusterSimulation(500,750,"A",100,"probit",TRUE)
+n500t2000A=ClusterSimulation(500,2000,"A",100,"probit",TRUE)
+
+n1000t300A=ClusterSimulation(1000,300,"A",100,"probit",TRUE)
+n1000t750A=ClusterSimulation(1000,750,"A",100,"probit",TRUE)
+n1000t2000A=ClusterSimulation(1000,2000,"A",100,"probit",TRUE)
+
+true_tableA=rbind(n100t300A$cluster_table_true,n100t750A$cluster_table_true,n100t2000A$cluster_table_true,
+                  n500t300A$cluster_table_true,n500t750A$cluster_table_true,n500t2000A$cluster_table_true,
+                  n1000t300A$cluster_table_true,n1000t750A$cluster_table_true,n1000t2000A$cluster_table_true)
+rownames(true_tableA)=c("n100t300","n100t750","n100t2000",
+                        "n500t300","n500t750","n500t2000",
+                        "n1000t300","n1000t750","n1000t2000")
+
+est_tableA=rbind(n100t300A$cluster_table_est,n100t750A$cluster_table_est,n100t2000A$cluster_table_est,
+                 n500t300A$cluster_table_est,n500t750A$cluster_table_est,n500t2000A$cluster_table_est,
+                 n1000t300A$cluster_table_est,n1000t750A$cluster_table_est,n1000t2000A$cluster_table_est)
+rownames(est_tableA)=c("n100t300","n100t750","n100t2000",
+                       "n500t300","n500t750","n500t2000",
+                       "n1000t300","n1000t750","n1000t2000")
+
+
+est_tableA_se=rbind(n100t300A$cluster_table_est_se,n100t750A$cluster_table_est_se,n100t2000A$cluster_table_est_se,
+                    n500t300A$cluster_table_est_se,n500t750A$cluster_table_est_se,n500t2000A$cluster_table_est_se,
+                    n1000t300A$cluster_table_est_se,n1000t750A$cluster_table_est_se,n1000t2000A$cluster_table_est_se)
+rownames(est_tableA_se)=c("n100t300","n100t750","n100t2000",
+                          "n500t300","n500t750","n500t2000",
+                          "n1000t300","n1000t750","n1000t2000")
+
+save(true_tableA,est_tableA,est_tableA_se,file="A_clustering_before_mse_tableA.RData")
+
+mse_tableA=rbind(
+  c(n100t300A$mse[1,1],n100t300A$mse[2,1],n100t300A$hellinger[1,1],n100t300A$hellinger[2,1],n100t300A$hellinger[3,1]),
+  c(n100t750A$mse[1,1],n100t750A$mse[2,1],n100t750A$hellinger[1,1],n100t750A$hellinger[2,1],n100t750A$hellinger[3,1]),
+  c(n100t2000A$mse[1,1],n100t2000A$mse[2,1],n100t2000A$hellinger[1,1],n100t2000A$hellinger[2,1],n100t2000A$hellinger[3,1]),
+
+  c(n100t300A$mse[1,2],n100t300A$mse[2,2],n100t300A$hellinger[1,2],n100t300A$hellinger[2,2],n100t300A$hellinger[3,2]),
+  c(n100t750A$mse[1,2],n100t750A$mse[2,2],n100t750A$hellinger[1,2],n100t750A$hellinger[2,2],n100t750A$hellinger[3,2]),
+  c(n100t2000A$mse[1,2],n100t2000A$mse[2,2],n100t2000A$hellinger[1,2],n100t2000A$hellinger[2,2],n100t2000A$hellinger[3,2]),
+
+  c(n100t300A$mse[1,3],n100t300A$mse[2,3],n100t300A$hellinger[1,3],n100t300A$hellinger[2,3],n100t300A$hellinger[3,3]),
+  c(n100t750A$mse[1,3],n100t750A$mse[2,3],n100t750A$hellinger[1,3],n100t750A$hellinger[2,3],n100t750A$hellinger[3,3]),
+  c(n100t2000A$mse[1,3],n100t2000A$mse[2,3],n100t2000A$hellinger[1,3],n100t2000A$hellinger[2,3],n100t2000A$hellinger[3,3]),
+)
+
+
+rownames(mse_tableA)=c("s1n100t300","s1n100t750","s1n100t2000",
+                       "s2n100t300","s2n100t750","s2n100t2000",
+                       "s3n100t300","s3n100t750","s3n100t2000")
+colnames(mse_tableA)=c("z1","z2","p1","p2","p3")
+save(true_tableA,est_tableA,est_tableA_se,mse_tableA,file="A_clustering.RData")
+
+# ////////////// A Scenario END ///////////////////////////
+#scenario B
+#####################################
+###scenario B
+##########scenarioA
+#cluster_simulation=function(n,m,scenario,mc_sims)
+n100t300B=ClusterSimulation(100,300,"B",100,"probit",TRUE)
+n100t750B=ClusterSimulation(100,750,"B",100,"probit",TRUE)
+n100t2000B=ClusterSimulation(100,2000,"B",100,"probit",TRUE)
+
+
+n500t300B=ClusterSimulation(500,300,"B",100,"probit",TRUE)
+n500t750B=ClusterSimulation(500,750,"B",100,"probit",TRUE)
+n500t2000B=ClusterSimulation(500,2000,"B",100,"probit",TRUE)
+
+
+n1000t300B=ClusterSimulation(1000,300,"B",100,"probit",TRUE)
+n1000t750B=ClusterSimulation(1000,750,"B",100,"probit",TRUE)
+n1000t2000B=ClusterSimulation(1000,2000,"B",100,"probit",TRUE)
+
+
+true_tableB=rbind(n100t300B$cluster_table_true,n100t750B$cluster_table_true,n100t2000B$cluster_table_true,
+                  n500t300B$cluster_table_true,n500t750B$cluster_table_true,n500t2000B$cluster_table_true,
+                  n1000t300B$cluster_table_true,n1000t750B$cluster_table_true,n1000t2000B$cluster_table_true)
+rownames(true_tableB)=c("n100t300","n100t750","n100t2000",
+                        "n500t300","n500t750","n500t2000",
+                        "n1000t300","n1000t750","n1000t2000")
+
+est_tableB=rbind(n100t300B$cluster_table_est,n100t750B$cluster_table_est,n100t2000B$cluster_table_est,
+                 n500t300B$cluster_table_est,n500t750B$cluster_table_est,n500t2000B$cluster_table_est,
+                 n1000t300B$cluster_table_est,n1000t750B$cluster_table_est,n1000t2000B$cluster_table_est)
+rownames(est_tableB)=c("n100t300","n100t750","n100t2000",
+                       "n500t300","n500t750","n500t2000",
+                       "n1000t300","n1000t750","n1000t2000")
+
+
+est_tableB_se=rbind(n100t300B$cluster_table_est_se,n100t750B$cluster_table_est_se,n100t2000B$cluster_table_est_se,
+                    n500t300B$cluster_table_est_se,n500t750B$cluster_table_est_se,n500t2000B$cluster_table_est_se,
+                    n1000t300B$cluster_table_est_se,n1000t750B$cluster_table_est_se,n1000t2000B$cluster_table_est_se)
+rownames(est_tableB_se)=c("n100t300","n100t750","n100t2000",
+                          "n500t300","n500t750","n500t2000",
+                          "n1000t300","n1000t750","n1000t2000")
+
+
+save(true_tableB,est_tableB,est_tableB_se,file="B_clustering.RData")
+
+mse_tableB=rbind(
+  c(n100t300B$mse[1,1],n100t300B$mse[2,1],n100t300B$hellinger[1,1],n100t300B$hellinger[2,1],n100t300B$hellinger[3,1]),
+  c(n100t750B$mse[1,1],n100t750B$mse[2,1],n100t750B$hellinger[1,1],n100t750B$hellinger[2,1],n100t750B$hellinger[3,1]),
+  c(n100t2000B$mse[1,1],n100t2000B$mse[2,1],n100t2000B$hellinger[1,1],n100t2000B$hellinger[2,1],n100t2000B$hellinger[3,1]),
+
+  c(n100t300B$mse[1,2],n100t300B$mse[2,2],n100t300B$hellinger[1,2],n100t300B$hellinger[2,2],n100t300B$hellinger[3,2]),
+  c(n100t750B$mse[1,2],n100t750B$mse[2,2],n100t750B$hellinger[1,2],n100t750B$hellinger[2,2],n100t750B$hellinger[3,2]),
+  c(n100t2000B$mse[1,2],n100t2000B$mse[2,2],n100t2000B$hellinger[1,2],n100t2000B$hellinger[2,2],n100t2000B$hellinger[3,2]),
+
+  c(n100t300B$mse[1,3],n100t300B$mse[2,3],n100t300B$hellinger[1,3],n100t300B$hellinger[2,3],n100t300B$hellinger[3,3]),
+  c(n100t750B$mse[1,3],n100t750B$mse[2,3],n100t750B$hellinger[1,3],n100t750B$hellinger[2,3],n100t750B$hellinger[3,3]),
+  c(n100t2000B$mse[1,3],n100t2000B$mse[2,3],n100t2000B$hellinger[1,3],n100t2000B$hellinger[2,3],n100t2000B$hellinger[3,3]),
+)
+
+
+rownames(mse_tableB)=c("s1n100t300","s1n100t750","s1n100t2000",
+                       "s2n100t300","s2n100t750","s2n100t2000",
+                       "s3n100t300","s3n100t750","s3n100t2000")
+colnames(mse_tableB)=c("z1","z2","p1","p2","p3")
+save(true_tableB,est_tableB,est_tableB_se,mse_tableB,file="B_clustering.RData")
+
+n100t300C=ClusterSimulation(100,300,"C",100,"probit",TRUE)
+n100t750C=ClusterSimulation(100,750,"C",100,"probit",TRUE)
+n100t2000C=ClusterSimulation(100,2000,"C",100,"probit",TRUE)
+
+
+n500t300C=ClusterSimulation(500,300,"C",100,"probit",TRUE)
+n500t750C=ClusterSimulation(500,750,"C",100,"probit",TRUE)
+n500t2000C=ClusterSimulation(500,2000,"C",100,"probit",TRUE)
+
+
+n1000t300C=ClusterSimulation(1000,300,"C",100,"probit",TRUE)
+n1000t750C=ClusterSimulation(1000,750,"C",100,"probit",TRUE)
+n1000t2000C=ClusterSimulation(1000,2000,"C",100,"probit",TRUE)
+
+
+true_tableC=rbind(n100t300C$cluster_table_true,n100t750C$cluster_table_true,n100t2000C$cluster_table_true,
+                  n500t300C$cluster_table_true,n500t750C$cluster_table_true,n500t2000C$cluster_table_true,
+                  n1000t300C$cluster_table_true,n1000t750C$cluster_table_true,n1000t2000C$cluster_table_true)
+rownames(true_tableC)=c("n100t300","n100t750","n100t2000",
+                        "n500t300","n500t750","n500t2000",
+                        "n1000t300","n1000t750","n1000t2000")
+
+est_tableC=rbind(n100t300C$cluster_table_est,n100t750C$cluster_table_est,n100t2000C$cluster_table_est,
+                 n500t300C$cluster_table_est,n500t750C$cluster_table_est,n500t2000C$cluster_table_est,
+                 n1000t300C$cluster_table_est,n1000t750C$cluster_table_est,n1000t2000C$cluster_table_est)
+rownames(est_tableC)=c("n100t300","n100t750","n100t2000",
+                       "n500t300","n500t750","n500t2000",
+                       "n1000t300","n1000t750","n1000t2000")
+
+
+est_tableC_se=rbind(n100t300C$cluster_table_est_se,n100t750C$cluster_table_est_se,n100t2000C$cluster_table_est_se,
+                    n500t300C$cluster_table_est_se,n500t750C$cluster_table_est_se,n500t2000C$cluster_table_est_se,
+                    n1000t300C$cluster_table_est_se,n1000t750C$cluster_table_est_se,n1000t2000C$cluster_table_est_se)
+rownames(est_tableC_se)=c("n100t300","n100t750","n100t2000",
+                          "n500t300","n500t750","n500t2000",
+                          "n1000t300","n1000t750","n1000t2000")
+
+
+save(true_tableC,est_tableC,est_tableC_se,file="C_clustering.RData")
+
+mse_tableC=rbind(
+  c(n100t300C$mse[1,1],n100t300C$mse[2,1],n100t300C$hellinger[1,1],n100t300C$hellinger[2,1],n100t300C$hellinger[3,1]),
+  c(n100t750C$mse[1,1],n100t750C$mse[2,1],n100t750C$hellinger[1,1],n100t750C$hellinger[2,1],n100t750C$hellinger[3,1]),
+  c(n100t2000C$mse[1,1],n100t2000C$mse[2,1],n100t2000C$hellinger[1,1],n100t2000C$hellinger[2,1],n100t2000C$hellinger[3,1]),
+
+  c(n100t300C$mse[1,2],n100t300C$mse[2,2],n100t300C$hellinger[1,2],n100t300C$hellinger[2,2],n100t300C$hellinger[3,2]),
+  c(n100t750C$mse[1,2],n100t750C$mse[2,2],n100t750C$hellinger[1,2],n100t750C$hellinger[2,2],n100t750C$hellinger[3,2]),
+  c(n100t2000C$mse[1,2],n100t2000C$mse[2,2],n100t2000C$hellinger[1,2],n100t2000C$hellinger[2,2],n100t2000C$hellinger[3,2]),
+
+  c(n100t300C$mse[1,3],n100t300C$mse[2,3],n100t300C$hellinger[1,3],n100t300C$hellinger[2,3],n100t300C$hellinger[3,3]),
+  c(n100t750C$mse[1,3],n100t750C$mse[2,3],n100t750C$hellinger[1,3],n100t750C$hellinger[2,3],n100t750C$hellinger[3,3]),
+  c(n100t2000C$mse[1,3],n100t2000C$mse[2,3],n100t2000C$hellinger[1,3],n100t2000C$hellinger[2,3],n100t2000C$hellinger[3,3]),
+)
+
+
+rownames(mse_tableC)=c("s1n100t300","s1n100t750","s1n100t2000",
+                       "s2n100t300","s2n100t750","s2n100t2000",
+                       "s3n100t300","s3n100t750","s3n100t2000")
+colnames(mse_tableC)=c("z1","z2","p1","p2","p3")
+save(true_tableC,est_tableC,est_tableC_se,mse_tableC,file="B_clustering.RData")
+end_time <- Sys.time()
+print(end_time - start_time)
+
+if(run_parallel)
+{
+  parallel::stopCluster(cl = my.cluster)
+  initialized_parallel <- FALSE
+}
