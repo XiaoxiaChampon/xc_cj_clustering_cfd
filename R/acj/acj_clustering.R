@@ -430,6 +430,7 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
              || (min(as.numeric(tolcat)) == 1 && categ_func_data_list$W[, indv][1] == refcat && count_iter < 100))
       {
         count_iter <- count_iter + 1
+
         new_cluster_data <- GenerateClusterData(setting_choice, scenario, 3, 5, timeseries_length)
 
         new_prob_curves <- list(p1 = new_cluster_data$p1, p2 = new_cluster_data$p2, p3 = new_cluster_data$p3)
