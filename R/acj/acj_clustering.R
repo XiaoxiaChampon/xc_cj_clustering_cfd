@@ -360,6 +360,7 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
   {
     this_time <- Sys.time()
     this_section_time <- this_time - last_time
+    cat(row_name, "calc time taken:", capture.output(this_section_time), "\n")
     time_elapsed[[row_name]] <<- append(time_elapsed[[row_name]], this_section_time)
     last_time <<- this_time
   }
@@ -429,7 +430,6 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
              || (min(as.numeric(tolcat)) == 1 && categ_func_data_list$W[, indv][1] == refcat && count_iter < 100))
       {
         count_iter <- count_iter + 1
-        #new_cluster_data <- GenerateClusterData(setting_choice, "A", 3, 5, timeseries_length)
 
         new_cluster_data <- GenerateClusterData(setting_choice, scenario, 3, 5, timeseries_length)
 
@@ -631,16 +631,13 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
                               "dbscan RI","dbscan ARI","dbscan cpn"
                               )
 
-
   cluster_table_est=c( mean(results$est_dbscan_ri_cfda),
                        mean(results$est_dbscan_ari_cfda),
                        mean(results$est_dbscan_cpn_cfda),
                             
                       mean(results$est_fadp_ri),
                       mean(results$est_fadp_ari),
-
                       mean(results$est_fadp_cpn),
-
 
                       mean(results$est_kmeans_ri),
                       mean(results$est_kmeans_ari),
@@ -1139,200 +1136,95 @@ PsiFunc <- function(klen, timestamps01)
   return(rbind(psi_k1, psi_k2))
 }
 
-# EXECUTION:
+RunExperiment <- function(scenario, num_replicas, est_choice)
+{
+  n100t300C=ClusterSimulation(100,300,scenario,num_replicas,est_choice,TRUE)
+  n100t750C=ClusterSimulation(100,750,scenario,num_replicas,est_choice,TRUE)
+  n100t2000C=ClusterSimulation(100,2000,scenario,num_replicas,est_choice,TRUE)
+  
+  
+  n500t300C=ClusterSimulation(500,300,scenario,num_replicas,est_choice,TRUE)
+  n500t750C=ClusterSimulation(500,750,scenario,num_replicas,est_choice,TRUE)
+  n500t2000C=ClusterSimulation(500,2000,scenario,num_replicas,est_choice,TRUE)
+  
+  
+  n1000t300C=ClusterSimulation(1000,300,scenario,num_replicas,est_choice,TRUE)
+  n1000t750C=ClusterSimulation(1000,750,scenario,num_replicas,est_choice,TRUE)
+  n1000t2000C=ClusterSimulation(1000,2000,scenario,num_replicas,est_choice,TRUE)
+  
+  
+  true_tableC=rbind(n100t300C$cluster_table_true,n100t750C$cluster_table_true,n100t2000C$cluster_table_true,
+                    n500t300C$cluster_table_true,n500t750C$cluster_table_true,n500t2000C$cluster_table_true,
+                    n1000t300C$cluster_table_true,n1000t750C$cluster_table_true,n1000t2000C$cluster_table_true)
+  rownames(true_tableC)=c("n100t300","n100t750","n100t2000",
+                          "n500t300","n500t750","n500t2000",
+                          "n1000t300","n1000t750","n1000t2000")
+  
+  est_tableC=rbind(n100t300C$cluster_table_est,n100t750C$cluster_table_est,n100t2000C$cluster_table_est,
+                   n500t300C$cluster_table_est,n500t750C$cluster_table_est,n500t2000C$cluster_table_est,
+                   n1000t300C$cluster_table_est,n1000t750C$cluster_table_est,n1000t2000C$cluster_table_est)
+  rownames(est_tableC)=c("n100t300","n100t750","n100t2000",
+                         "n500t300","n500t750","n500t2000",
+                         "n1000t300","n1000t750","n1000t2000")
+  
+  
+  est_tableC_se=rbind(n100t300C$cluster_table_est_se,n100t750C$cluster_table_est_se,n100t2000C$cluster_table_est_se,
+                      n500t300C$cluster_table_est_se,n500t750C$cluster_table_est_se,n500t2000C$cluster_table_est_se,
+                      n1000t300C$cluster_table_est_se,n1000t750C$cluster_table_est_se,n1000t2000C$cluster_table_est_se)
+  rownames(est_tableC_se)=c("n100t300","n100t750","n100t2000",
+                            "n500t300","n500t750","n500t2000",
+                            "n1000t300","n1000t750","n1000t2000")
+  
+  
+  save(true_tableC,est_tableC,est_tableC_se,file=paste(scenario,num_replicas,est_choice,"_beforeMSE_clustering.RData",sep="_"))
+  
+  mse_tableC=rbind(
+    c(n100t300C$mse[1,1],n100t300C$mse[2,1],n100t300C$hellinger[1,1],n100t300C$hellinger[2,1],n100t300C$hellinger[3,1]),
+    c(n100t750C$mse[1,1],n100t750C$mse[2,1],n100t750C$hellinger[1,1],n100t750C$hellinger[2,1],n100t750C$hellinger[3,1]),
+    c(n100t2000C$mse[1,1],n100t2000C$mse[2,1],n100t2000C$hellinger[1,1],n100t2000C$hellinger[2,1],n100t2000C$hellinger[3,1]),
+    
+    c(n100t300C$mse[1,2],n100t300C$mse[2,2],n100t300C$hellinger[1,2],n100t300C$hellinger[2,2],n100t300C$hellinger[3,2]),
+    c(n100t750C$mse[1,2],n100t750C$mse[2,2],n100t750C$hellinger[1,2],n100t750C$hellinger[2,2],n100t750C$hellinger[3,2]),
+    c(n100t2000C$mse[1,2],n100t2000C$mse[2,2],n100t2000C$hellinger[1,2],n100t2000C$hellinger[2,2],n100t2000C$hellinger[3,2]),
+    
+    c(n100t300C$mse[1,3],n100t300C$mse[2,3],n100t300C$hellinger[1,3],n100t300C$hellinger[2,3],n100t300C$hellinger[3,3]),
+    c(n100t750C$mse[1,3],n100t750C$mse[2,3],n100t750C$hellinger[1,3],n100t750C$hellinger[2,3],n100t750C$hellinger[3,3]),
+    c(n100t2000C$mse[1,3],n100t2000C$mse[2,3],n100t2000C$hellinger[1,3],n100t2000C$hellinger[2,3],n100t2000C$hellinger[3,3])
+  )
+  
+  
+  rownames(mse_tableC)=c("s1n100t300","s1n100t750","s1n100t2000",
+                         "s2n100t300","s2n100t750","s2n100t2000",
+                         "s3n100t300","s3n100t750","s3n100t2000")
+  colnames(mse_tableC)=c("z1","z2","p1","p2","p3")
+  save(true_tableC,est_tableC,est_tableC_se,mse_tableC,file=paste(scenario,num_replicas,est_choice,"clustering.RData",sep="_"))
+  return(list("true_tableC"=true_tableC,
+               "est_tableC"=est_tableC,
+               "est_tableC_se"=est_tableC_se,
+               "mse_tableC"=mse_tableC))
+}
 
-set.seed(123)
+# EXECUTION:
 
 # }) # profvis end
 
-# ////////////// A Scenario BEGIN ///////////////////////////
+# set.seed(123)
+# A_100_probit <- RunExperiment("A",100,"probit")
 
-n100t300A=ClusterSimulation(100,300,"A",100,"probit",TRUE)
-n100t750A=ClusterSimulation(100,750,"A",100,"probit",TRUE)
-n100t2000A=ClusterSimulation(100,2000,"A",100,"probit",TRUE)
-n500t300A=ClusterSimulation(500,300,"A",100,"probit",TRUE)
+set.seed(123)
+A_20_multinomial <- RunExperiment("A",20,"multinormial")
 
-n500t750A=ClusterSimulation(500,750,"A",100,"probit",TRUE)
-n500t2000A=ClusterSimulation(500,2000,"A",100,"probit",TRUE)
+set.seed(123)
+C_20_probit <- RunExperiment("C",20,"probit")
 
-n1000t300A=ClusterSimulation(1000,300,"A",100,"probit",TRUE)
-n1000t750A=ClusterSimulation(1000,750,"A",100,"probit",TRUE)
-n1000t2000A=ClusterSimulation(1000,2000,"A",100,"probit",TRUE)
+set.seed(123)
+C_20_multinomial <- RunExperiment("C",20,"multinormial")
 
-true_tableA=rbind(n100t300A$cluster_table_true,n100t750A$cluster_table_true,n100t2000A$cluster_table_true,
-                  n500t300A$cluster_table_true,n500t750A$cluster_table_true,n500t2000A$cluster_table_true,
-                  n1000t300A$cluster_table_true,n1000t750A$cluster_table_true,n1000t2000A$cluster_table_true)
-rownames(true_tableA)=c("n100t300","n100t750","n100t2000",
-                        "n500t300","n500t750","n500t2000",
-                        "n1000t300","n1000t750","n1000t2000")
+set.seed(123)
+B_20_probit <- RunExperiment("B",20,"probit")
 
-est_tableA=rbind(n100t300A$cluster_table_est,n100t750A$cluster_table_est,n100t2000A$cluster_table_est,
-                 n500t300A$cluster_table_est,n500t750A$cluster_table_est,n500t2000A$cluster_table_est,
-                 n1000t300A$cluster_table_est,n1000t750A$cluster_table_est,n1000t2000A$cluster_table_est)
-rownames(est_tableA)=c("n100t300","n100t750","n100t2000",
-                       "n500t300","n500t750","n500t2000",
-                       "n1000t300","n1000t750","n1000t2000")
-
-
-est_tableA_se=rbind(n100t300A$cluster_table_est_se,n100t750A$cluster_table_est_se,n100t2000A$cluster_table_est_se,
-                    n500t300A$cluster_table_est_se,n500t750A$cluster_table_est_se,n500t2000A$cluster_table_est_se,
-                    n1000t300A$cluster_table_est_se,n1000t750A$cluster_table_est_se,n1000t2000A$cluster_table_est_se)
-rownames(est_tableA_se)=c("n100t300","n100t750","n100t2000",
-                          "n500t300","n500t750","n500t2000",
-                          "n1000t300","n1000t750","n1000t2000")
-
-save(true_tableA,est_tableA,est_tableA_se,file="A_clustering_before_mse_tableA.RData")
-
-mse_tableA=rbind(
-  c(n100t300A$mse[1,1],n100t300A$mse[2,1],n100t300A$hellinger[1,1],n100t300A$hellinger[2,1],n100t300A$hellinger[3,1]),
-  c(n100t750A$mse[1,1],n100t750A$mse[2,1],n100t750A$hellinger[1,1],n100t750A$hellinger[2,1],n100t750A$hellinger[3,1]),
-  c(n100t2000A$mse[1,1],n100t2000A$mse[2,1],n100t2000A$hellinger[1,1],n100t2000A$hellinger[2,1],n100t2000A$hellinger[3,1]),
-
-  c(n100t300A$mse[1,2],n100t300A$mse[2,2],n100t300A$hellinger[1,2],n100t300A$hellinger[2,2],n100t300A$hellinger[3,2]),
-  c(n100t750A$mse[1,2],n100t750A$mse[2,2],n100t750A$hellinger[1,2],n100t750A$hellinger[2,2],n100t750A$hellinger[3,2]),
-  c(n100t2000A$mse[1,2],n100t2000A$mse[2,2],n100t2000A$hellinger[1,2],n100t2000A$hellinger[2,2],n100t2000A$hellinger[3,2]),
-
-  c(n100t300A$mse[1,3],n100t300A$mse[2,3],n100t300A$hellinger[1,3],n100t300A$hellinger[2,3],n100t300A$hellinger[3,3]),
-  c(n100t750A$mse[1,3],n100t750A$mse[2,3],n100t750A$hellinger[1,3],n100t750A$hellinger[2,3],n100t750A$hellinger[3,3]),
-  c(n100t2000A$mse[1,3],n100t2000A$mse[2,3],n100t2000A$hellinger[1,3],n100t2000A$hellinger[2,3],n100t2000A$hellinger[3,3]),
-)
-
-
-rownames(mse_tableA)=c("s1n100t300","s1n100t750","s1n100t2000",
-                       "s2n100t300","s2n100t750","s2n100t2000",
-                       "s3n100t300","s3n100t750","s3n100t2000")
-colnames(mse_tableA)=c("z1","z2","p1","p2","p3")
-save(true_tableA,est_tableA,est_tableA_se,mse_tableA,file="A_clustering.RData")
-
-# ////////////// A Scenario END ///////////////////////////
-#scenario B
-#####################################
-###scenario B
-##########scenarioA
-#cluster_simulation=function(n,m,scenario,mc_sims)
-n100t300B=ClusterSimulation(100,300,"B",100,"probit",TRUE)
-n100t750B=ClusterSimulation(100,750,"B",100,"probit",TRUE)
-n100t2000B=ClusterSimulation(100,2000,"B",100,"probit",TRUE)
-
-
-n500t300B=ClusterSimulation(500,300,"B",100,"probit",TRUE)
-n500t750B=ClusterSimulation(500,750,"B",100,"probit",TRUE)
-n500t2000B=ClusterSimulation(500,2000,"B",100,"probit",TRUE)
-
-
-n1000t300B=ClusterSimulation(1000,300,"B",100,"probit",TRUE)
-n1000t750B=ClusterSimulation(1000,750,"B",100,"probit",TRUE)
-n1000t2000B=ClusterSimulation(1000,2000,"B",100,"probit",TRUE)
-
-
-true_tableB=rbind(n100t300B$cluster_table_true,n100t750B$cluster_table_true,n100t2000B$cluster_table_true,
-                  n500t300B$cluster_table_true,n500t750B$cluster_table_true,n500t2000B$cluster_table_true,
-                  n1000t300B$cluster_table_true,n1000t750B$cluster_table_true,n1000t2000B$cluster_table_true)
-rownames(true_tableB)=c("n100t300","n100t750","n100t2000",
-                        "n500t300","n500t750","n500t2000",
-                        "n1000t300","n1000t750","n1000t2000")
-
-est_tableB=rbind(n100t300B$cluster_table_est,n100t750B$cluster_table_est,n100t2000B$cluster_table_est,
-                 n500t300B$cluster_table_est,n500t750B$cluster_table_est,n500t2000B$cluster_table_est,
-                 n1000t300B$cluster_table_est,n1000t750B$cluster_table_est,n1000t2000B$cluster_table_est)
-rownames(est_tableB)=c("n100t300","n100t750","n100t2000",
-                       "n500t300","n500t750","n500t2000",
-                       "n1000t300","n1000t750","n1000t2000")
-
-
-est_tableB_se=rbind(n100t300B$cluster_table_est_se,n100t750B$cluster_table_est_se,n100t2000B$cluster_table_est_se,
-                    n500t300B$cluster_table_est_se,n500t750B$cluster_table_est_se,n500t2000B$cluster_table_est_se,
-                    n1000t300B$cluster_table_est_se,n1000t750B$cluster_table_est_se,n1000t2000B$cluster_table_est_se)
-rownames(est_tableB_se)=c("n100t300","n100t750","n100t2000",
-                          "n500t300","n500t750","n500t2000",
-                          "n1000t300","n1000t750","n1000t2000")
-
-
-save(true_tableB,est_tableB,est_tableB_se,file="B_clustering.RData")
-
-mse_tableB=rbind(
-  c(n100t300B$mse[1,1],n100t300B$mse[2,1],n100t300B$hellinger[1,1],n100t300B$hellinger[2,1],n100t300B$hellinger[3,1]),
-  c(n100t750B$mse[1,1],n100t750B$mse[2,1],n100t750B$hellinger[1,1],n100t750B$hellinger[2,1],n100t750B$hellinger[3,1]),
-  c(n100t2000B$mse[1,1],n100t2000B$mse[2,1],n100t2000B$hellinger[1,1],n100t2000B$hellinger[2,1],n100t2000B$hellinger[3,1]),
-
-  c(n100t300B$mse[1,2],n100t300B$mse[2,2],n100t300B$hellinger[1,2],n100t300B$hellinger[2,2],n100t300B$hellinger[3,2]),
-  c(n100t750B$mse[1,2],n100t750B$mse[2,2],n100t750B$hellinger[1,2],n100t750B$hellinger[2,2],n100t750B$hellinger[3,2]),
-  c(n100t2000B$mse[1,2],n100t2000B$mse[2,2],n100t2000B$hellinger[1,2],n100t2000B$hellinger[2,2],n100t2000B$hellinger[3,2]),
-
-  c(n100t300B$mse[1,3],n100t300B$mse[2,3],n100t300B$hellinger[1,3],n100t300B$hellinger[2,3],n100t300B$hellinger[3,3]),
-  c(n100t750B$mse[1,3],n100t750B$mse[2,3],n100t750B$hellinger[1,3],n100t750B$hellinger[2,3],n100t750B$hellinger[3,3]),
-  c(n100t2000B$mse[1,3],n100t2000B$mse[2,3],n100t2000B$hellinger[1,3],n100t2000B$hellinger[2,3],n100t2000B$hellinger[3,3]),
-)
-
-
-rownames(mse_tableB)=c("s1n100t300","s1n100t750","s1n100t2000",
-                       "s2n100t300","s2n100t750","s2n100t2000",
-                       "s3n100t300","s3n100t750","s3n100t2000")
-colnames(mse_tableB)=c("z1","z2","p1","p2","p3")
-save(true_tableB,est_tableB,est_tableB_se,mse_tableB,file="B_clustering.RData")
-
-n100t300C=ClusterSimulation(100,300,"C",100,"probit",TRUE)
-n100t750C=ClusterSimulation(100,750,"C",100,"probit",TRUE)
-n100t2000C=ClusterSimulation(100,2000,"C",100,"probit",TRUE)
-
-
-n500t300C=ClusterSimulation(500,300,"C",100,"probit",TRUE)
-n500t750C=ClusterSimulation(500,750,"C",100,"probit",TRUE)
-n500t2000C=ClusterSimulation(500,2000,"C",100,"probit",TRUE)
-
-
-n1000t300C=ClusterSimulation(1000,300,"C",100,"probit",TRUE)
-n1000t750C=ClusterSimulation(1000,750,"C",100,"probit",TRUE)
-n1000t2000C=ClusterSimulation(1000,2000,"C",100,"probit",TRUE)
-
-
-true_tableC=rbind(n100t300C$cluster_table_true,n100t750C$cluster_table_true,n100t2000C$cluster_table_true,
-                  n500t300C$cluster_table_true,n500t750C$cluster_table_true,n500t2000C$cluster_table_true,
-                  n1000t300C$cluster_table_true,n1000t750C$cluster_table_true,n1000t2000C$cluster_table_true)
-rownames(true_tableC)=c("n100t300","n100t750","n100t2000",
-                        "n500t300","n500t750","n500t2000",
-                        "n1000t300","n1000t750","n1000t2000")
-
-est_tableC=rbind(n100t300C$cluster_table_est,n100t750C$cluster_table_est,n100t2000C$cluster_table_est,
-                 n500t300C$cluster_table_est,n500t750C$cluster_table_est,n500t2000C$cluster_table_est,
-                 n1000t300C$cluster_table_est,n1000t750C$cluster_table_est,n1000t2000C$cluster_table_est)
-rownames(est_tableC)=c("n100t300","n100t750","n100t2000",
-                       "n500t300","n500t750","n500t2000",
-                       "n1000t300","n1000t750","n1000t2000")
-
-
-est_tableC_se=rbind(n100t300C$cluster_table_est_se,n100t750C$cluster_table_est_se,n100t2000C$cluster_table_est_se,
-                    n500t300C$cluster_table_est_se,n500t750C$cluster_table_est_se,n500t2000C$cluster_table_est_se,
-                    n1000t300C$cluster_table_est_se,n1000t750C$cluster_table_est_se,n1000t2000C$cluster_table_est_se)
-rownames(est_tableC_se)=c("n100t300","n100t750","n100t2000",
-                          "n500t300","n500t750","n500t2000",
-                          "n1000t300","n1000t750","n1000t2000")
-
-
-save(true_tableC,est_tableC,est_tableC_se,file="C_clustering.RData")
-
-mse_tableC=rbind(
-  c(n100t300C$mse[1,1],n100t300C$mse[2,1],n100t300C$hellinger[1,1],n100t300C$hellinger[2,1],n100t300C$hellinger[3,1]),
-  c(n100t750C$mse[1,1],n100t750C$mse[2,1],n100t750C$hellinger[1,1],n100t750C$hellinger[2,1],n100t750C$hellinger[3,1]),
-  c(n100t2000C$mse[1,1],n100t2000C$mse[2,1],n100t2000C$hellinger[1,1],n100t2000C$hellinger[2,1],n100t2000C$hellinger[3,1]),
-
-  c(n100t300C$mse[1,2],n100t300C$mse[2,2],n100t300C$hellinger[1,2],n100t300C$hellinger[2,2],n100t300C$hellinger[3,2]),
-  c(n100t750C$mse[1,2],n100t750C$mse[2,2],n100t750C$hellinger[1,2],n100t750C$hellinger[2,2],n100t750C$hellinger[3,2]),
-  c(n100t2000C$mse[1,2],n100t2000C$mse[2,2],n100t2000C$hellinger[1,2],n100t2000C$hellinger[2,2],n100t2000C$hellinger[3,2]),
-
-  c(n100t300C$mse[1,3],n100t300C$mse[2,3],n100t300C$hellinger[1,3],n100t300C$hellinger[2,3],n100t300C$hellinger[3,3]),
-  c(n100t750C$mse[1,3],n100t750C$mse[2,3],n100t750C$hellinger[1,3],n100t750C$hellinger[2,3],n100t750C$hellinger[3,3]),
-  c(n100t2000C$mse[1,3],n100t2000C$mse[2,3],n100t2000C$hellinger[1,3],n100t2000C$hellinger[2,3],n100t2000C$hellinger[3,3]),
-)
-
-
-rownames(mse_tableC)=c("s1n100t300","s1n100t750","s1n100t2000",
-                       "s2n100t300","s2n100t750","s2n100t2000",
-                       "s3n100t300","s3n100t750","s3n100t2000")
-colnames(mse_tableC)=c("z1","z2","p1","p2","p3")
-save(true_tableC,est_tableC,est_tableC_se,mse_tableC,file="B_clustering.RData")
-end_time <- Sys.time()
-print(end_time - start_time)
+set.seed(123)
+B_20_multinormial <- RunExperiment("B",20,"multinormial")
 
 if(run_parallel)
 {
