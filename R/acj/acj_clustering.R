@@ -366,8 +366,8 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
   }
 
   ######
-  Z_true_curve <- Z_est_curve=list()
-  p_true_curve <- p_est_curve=list()
+  Z_true_curve <- Z_est_curve <- list()
+  p_true_curve <- p_est_curve <- list()
   W_cfd <- list()
   for(replica_idx in 1:num_replicas)
   {
@@ -766,13 +766,18 @@ EstimateCategFuncData_multinormial <- function(timestamps01, W, basis_size=25, m
                    family=multinom(K=2), method = method,
                    control=list(maxit = 500,mgcv.tol=1e-4,epsilon = 1e-04),
                    optimizer=c("outer","bfgs")) 
-    p1 <- fit_binom$fitted.values[,1]
-    p2 <- fit_binom$fitted.values[,2]
-    prob[i,,] <- cbind(p1, p2, 1-p1-p2)
-    
+   
     z1<- fit_binom$linear.predictors[,1]
     z2<- fit_binom$linear.predictors[,2]
     Z<- cbind(Z, c(z1,z2))
+    ##find probability
+    Z_cbind=cbind(z1,z2)
+    exp_z=exp(Z_cbind)
+    denominator_p=1+exp_z[,1]+exp_z[,2]
+    p1 <- exp_z[,1]/denominator_p
+    p2 <- exp_z[,2]/denominator_p
+    p3=1/denominator_p
+    prob[i,,] <- cbind(p1, p2, p3)
     
   }
   
@@ -1276,30 +1281,36 @@ RunExperiment <- function(scenario, num_replicas, est_choice)
 # }) # profvis end
 
 #test
-# A_2_probit <- RunExperiment("A",2,"probit")
+set.seed(123)
+ A_2_probit <- RunExperiment("A",2,"probit")
+ set.seed(123)
+ A_2_mul <- RunExperiment("A",2,"multinormial")
 # 
 
-set.seed(123)
-A_100_probit <- RunExperiment("A",100,"probit")
-
-
-set.seed(123)
-A_20_multinomial <- RunExperiment("A",20,"multinormial")
-
-set.seed(123)
-C_20_probit <- RunExperiment("C",20,"probit")
-
-set.seed(123)
-C_20_multinomial <- RunExperiment("C",20,"multinormial")
-
-set.seed(123)
-B_20_probit <- RunExperiment("B",20,"probit")
-
-set.seed(123)
-B_20_multinormial <- RunExperiment("B",20,"multinormial")
+# set.seed(123)
+# A_100_probit <- RunExperiment("A",100,"probit")
+# 
+# 
+# set.seed(123)
+# A_20_multinomial <- RunExperiment("A",20,"multinormial")
+# 
+# set.seed(123)
+# C_20_probit <- RunExperiment("C",20,"probit")
+# 
+# set.seed(123)
+# C_20_multinomial <- RunExperiment("C",20,"multinormial")
+# 
+# set.seed(123)
+# B_20_probit <- RunExperiment("B",20,"probit")
+# 
+# set.seed(123)
+# B_20_multinormial <- RunExperiment("B",20,"multinormial")
 
 if(run_parallel)
 {
   parallel::stopCluster(cl = my.cluster)
   initialized_parallel <- FALSE
 }
+ 
+ 
+
