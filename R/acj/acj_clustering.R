@@ -367,6 +367,10 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
 
   for(replica_idx in 1:num_replicas)
   {
+    cat("\nNum Indvs:", num_indvs,
+        "\tTimeseries Len:", timeseries_length,
+        "\tScenario:", scenario,
+        "\tNum Replicas:", num_replicas)
     cat("\nReplica: ", replica_idx, "\n")
 
     # generate clusters
@@ -1211,20 +1215,20 @@ RunExperiment <- function(scenario, num_replicas, est_choice)
 # set.seed(123)
 # A_100_probit <- RunExperiment("A",100,"probit")
 
-set.seed(123)
-A_20_multinomial <- RunExperiment("A",20,"multinormial")
+# set.seed(123)
+# A_20_multinomial <- RunExperiment("A",20,"multinormial")
 
-set.seed(123)
-C_20_probit <- RunExperiment("C",20,"probit")
+# set.seed(123)
+# C_20_probit <- RunExperiment("C",20,"probit")
 
-set.seed(123)
-C_20_multinomial <- RunExperiment("C",20,"multinormial")
-
-set.seed(123)
-B_20_probit <- RunExperiment("B",20,"probit")
-
-set.seed(123)
-B_20_multinormial <- RunExperiment("B",20,"multinormial")
+# set.seed(123)
+# C_20_multinomial <- RunExperiment("C",20,"multinormial")
+# 
+# set.seed(123)
+# B_20_probit <- RunExperiment("B",20,"probit")
+# 
+# set.seed(123)
+# B_20_multinormial <- RunExperiment("B",20,"multinormial")
 
 if(run_parallel)
 {
