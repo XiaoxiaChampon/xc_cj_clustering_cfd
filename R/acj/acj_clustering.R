@@ -371,6 +371,10 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
   W_cfd <- list()
   for(replica_idx in 1:num_replicas)
   {
+    cat("\nNum Indvs:", num_indvs,
+        "\tTimeseries Len:", timeseries_length,
+        "\tScenario:", scenario,
+        "\tNum Replicas:", num_replicas)
     cat("\nReplica: ", replica_idx, "\n")
 
     # generate clusters
@@ -1279,6 +1283,7 @@ RunExperiment <- function(scenario, num_replicas, est_choice)
 # EXECUTION:
 
 # }) # profvis end
+
 
 #test
 set.seed(123)
