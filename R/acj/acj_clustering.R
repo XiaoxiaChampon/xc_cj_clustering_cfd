@@ -152,6 +152,7 @@ fadp_cluster <- function(mZ1, mZ2, tt=tt, PVE=0.95){
 # list with estimated PHI (m by K) with function norm 1
 #           projection of data onto PHI (called scores - nby K matrix)
 #
+
 extract_scores_UNIVFPCA <- function (mZ1,mZ2, tt , PVE=0.95)
 {
   m<- nrow(mZ1)
@@ -431,13 +432,15 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
       # better names for the following variables ???
       # 1. check weather one category only appears 1 time and is it in the end of the timeseries
       # 2. OR is it appearing only one time in the begining
+      # 3. OR if the category is less thant Q total category
       tolcat <- table(categ_func_data_list$W[, indv])
       catorder <- order(tolcat, decreasing = TRUE)
       numcat <- length(catorder)
       refcat <- catorder[numcat]
       count_iter <- 0
       while ((min(as.numeric(tolcat)) == 1 && categ_func_data_list$W[, indv][timeseries_length] == refcat && count_iter < 100)
-             || (min(as.numeric(tolcat)) == 1 && categ_func_data_list$W[, indv][1] == refcat && count_iter < 100))
+             || (min(as.numeric(tolcat)) == 1 && categ_func_data_list$W[, indv][1] == refcat && count_iter < 100)
+             )
       {
         count_iter <- count_iter + 1
 
@@ -520,6 +523,7 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
     est_dbscan_temp <- dbscan_cluster(data=mfpca_est$scores,1)$label
     timeKeeperNext()
     ##dbscan cfda
+    ##########no cfda
     basis_num <- 10
     nCores= n.cores
     true_dbscan_temp_cfda <- true_cluster_db
@@ -530,6 +534,7 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
     doParallel::registerDoParallel(cl = my.cluster)
     cat("Parellel Registered: ", foreach::getDoParRegistered(), "\n")
     est_dbscan_temp_cfda <- dbscan_cluster(data=cfd_scores,1)$label
+    ##########no cfda
     timeKeeperNext()
     #record results
     true_dbscan<- cbind(true_dbscan, true_dbscan_temp)
@@ -580,8 +585,8 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
      evaluate_cluster(true_cluster=true_cluster_db, new_cluster=cluster,0)$ari),
    true_dbscan_cpn_cfda=apply(true_dbscan_cfda, 2, function(cluster)
      evaluate_cluster(true_cluster=true_cluster_db, new_cluster=cluster,0)$cpn),
-   
-   
+
+
    est_dbscan_ri_cfda=apply(est_dbscan_cfda, 2, function(cluster)
      evaluate_cluster(true_cluster=true_cluster_db, new_cluster=cluster,0)$ri),
    est_dbscan_ari_cfda=apply(est_dbscan_cfda, 2, function(cluster)
@@ -624,7 +629,7 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
   )
 
   print("cluster_table")
-  cluster_table_true=c(mean(results$true_dbscan_ri_cfda),
+   cluster_table_true=c(mean(results$true_dbscan_ri_cfda),
                        mean(results$true_dbscan_ari_cfda),
                        mean(results$true_dbscan_cpn_cfda),
                        
@@ -649,7 +654,7 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
   cluster_table_est=c( mean(results$est_dbscan_ri_cfda),
                        mean(results$est_dbscan_ari_cfda),
                        mean(results$est_dbscan_cpn_cfda),
-                            
+
                       mean(results$est_fadp_ri),
                       mean(results$est_fadp_ari),
                       mean(results$est_fadp_cpn),
@@ -905,10 +910,10 @@ EstimateCategFuncData_probit <- function(timestamps01, X, basis_size=25, method=
   
 
   return(list(Z1_est=Z[1:timeseries_length,],
-            Z2_est=Z[1:timeseries_length+timeseries_length,],
-            p1_est=t(p[,,1]),
-            p2_est=t(p[,,2]),
-            p3_est=t(p[,,3]) ))
+             Z2_est=Z[1:timeseries_length+timeseries_length,],
+             p1_est=t(p[,,1]),
+             p2_est=t(p[,,2]),
+             p3_est=t(p[,,3]) ))
 }
 
 
@@ -1163,6 +1168,9 @@ PsiFunc <- function(klen, timestamps01)
 
 RunExperiment <- function(scenario, num_replicas, est_choice)
 {
+  # scenario="C"
+  # num_replicas=3
+  # est_choice="probit"
   n100t300C <- ClusterSimulation(100,300,scenario,num_replicas,est_choice,TRUE)
   n100t750C <- ClusterSimulation(100,750,scenario,num_replicas,est_choice,TRUE)
   n100t2000C <- ClusterSimulation(100,2000,scenario,num_replicas,est_choice,TRUE)
@@ -1203,7 +1211,7 @@ RunExperiment <- function(scenario, num_replicas, est_choice)
   
   save(true_tableC,est_tableC,est_tableC_se,file=paste(scenario,num_replicas,est_choice,"_beforeMSE_clustering.RData",sep="_"))
   
-  mse_tableC <- rbind(
+  mse_tableC100 <- rbind(
     c(n100t300C$mse[1,1],n100t300C$mse[2,1],n100t300C$hellinger[1,1],n100t300C$hellinger[2,1],n100t300C$hellinger[3,1]),
     c(n100t750C$mse[1,1],n100t750C$mse[2,1],n100t750C$hellinger[1,1],n100t750C$hellinger[2,1],n100t750C$hellinger[3,1]),
     c(n100t2000C$mse[1,1],n100t2000C$mse[2,1],n100t2000C$hellinger[1,1],n100t2000C$hellinger[2,1],n100t2000C$hellinger[3,1]),
@@ -1218,15 +1226,63 @@ RunExperiment <- function(scenario, num_replicas, est_choice)
   )
   
   
-  rownames(mse_tableC) <- c("s1n100t300","s1n100t750","s1n100t2000",
+  rownames(mse_tableC100) <- c("s1n100t300","s1n100t750","s1n100t2000",
                          "s2n100t300","s2n100t750","s2n100t2000",
                          "s3n100t300","s3n100t750","s3n100t2000")
-  colnames(mse_tableC) <- c("z1","z2","p1","p2","p3")
-  save(true_tableC,est_tableC,est_tableC_se,mse_tableC,file=paste(scenario,num_replicas,est_choice,"clustering.RData",sep="_"))
-  return(list("true_tableC"=true_tableC,
+  colnames(mse_tableC100) <- c("z1","z2","p1","p2","p3")
+  
+  mse_tableC500 <- rbind(
+    c(n500t300C$mse[1,1],n500t300C$mse[2,1],n500t300C$hellinger[1,1],n500t300C$hellinger[2,1],n500t300C$hellinger[3,1]),
+    c(n500t750C$mse[1,1],n500t750C$mse[2,1],n500t750C$hellinger[1,1],n500t750C$hellinger[2,1],n500t750C$hellinger[3,1]),
+    c(n500t2000C$mse[1,1],n500t2000C$mse[2,1],n500t2000C$hellinger[1,1],n500t2000C$hellinger[2,1],n500t2000C$hellinger[3,1]),
+    
+    c(n500t300C$mse[1,2],n500t300C$mse[2,2],n500t300C$hellinger[1,2],n500t300C$hellinger[2,2],n500t300C$hellinger[3,2]),
+    c(n500t750C$mse[1,2],n500t750C$mse[2,2],n500t750C$hellinger[1,2],n500t750C$hellinger[2,2],n500t750C$hellinger[3,2]),
+    c(n500t2000C$mse[1,2],n500t2000C$mse[2,2],n500t2000C$hellinger[1,2],n500t2000C$hellinger[2,2],n500t2000C$hellinger[3,2]),
+    
+    c(n500t300C$mse[1,3],n500t300C$mse[2,3],n500t300C$hellinger[1,3],n500t300C$hellinger[2,3],n500t300C$hellinger[3,3]),
+    c(n500t750C$mse[1,3],n500t750C$mse[2,3],n500t750C$hellinger[1,3],n500t750C$hellinger[2,3],n500t750C$hellinger[3,3]),
+    c(n500t2000C$mse[1,3],n500t2000C$mse[2,3],n500t2000C$hellinger[1,3],n500t2000C$hellinger[2,3],n500t2000C$hellinger[3,3])
+  )
+  
+  
+  rownames(mse_tableC500) <- c("s1n500t300","s1n500t750","s1n500t2000",
+                               "s2n500t300","s2n500t750","s2n500t2000",
+                               "s3n500t300","s3n500t750","s3n500t2000")
+  colnames(mse_tableC500) <- c("z1","z2","p1","p2","p3")
+  
+  
+  mse_tableC1000 <- rbind(
+    c(n1000t300C$mse[1,1],n1000t300C$mse[2,1],n1000t300C$hellinger[1,1],n1000t300C$hellinger[2,1],n1000t300C$hellinger[3,1]),
+    c(n1000t750C$mse[1,1],n1000t750C$mse[2,1],n1000t750C$hellinger[1,1],n1000t750C$hellinger[2,1],n1000t750C$hellinger[3,1]),
+    c(n1000t2000C$mse[1,1],n1000t2000C$mse[2,1],n1000t2000C$hellinger[1,1],n1000t2000C$hellinger[2,1],n1000t2000C$hellinger[3,1]),
+    
+    c(n1000t300C$mse[1,2],n1000t300C$mse[2,2],n1000t300C$hellinger[1,2],n1000t300C$hellinger[2,2],n1000t300C$hellinger[3,2]),
+    c(n1000t750C$mse[1,2],n1000t750C$mse[2,2],n1000t750C$hellinger[1,2],n1000t750C$hellinger[2,2],n1000t750C$hellinger[3,2]),
+    c(n1000t2000C$mse[1,2],n1000t2000C$mse[2,2],n1000t2000C$hellinger[1,2],n1000t2000C$hellinger[2,2],n1000t2000C$hellinger[3,2]),
+    
+    c(n1000t300C$mse[1,3],n1000t300C$mse[2,3],n1000t300C$hellinger[1,3],n1000t300C$hellinger[2,3],n1000t300C$hellinger[3,3]),
+    c(n1000t750C$mse[1,3],n1000t750C$mse[2,3],n1000t750C$hellinger[1,3],n1000t750C$hellinger[2,3],n1000t750C$hellinger[3,3]),
+    c(n1000t2000C$mse[1,3],n1000t2000C$mse[2,3],n1000t2000C$hellinger[1,3],n1000t2000C$hellinger[2,3],n1000t2000C$hellinger[3,3])
+  )
+  
+  
+  rownames(mse_tableC1000) <- c("s1n1000t300","s1n1000t750","s1n1000t2000",
+                               "s2n1000t300","s2n1000t750","s2n1000t2000",
+                               "s3n1000t300","s3n1000t750","s3n1000t2000")
+  colnames(mse_tableC1000) <- c("z1","z2","p1","p2","p3")
+  
+  
+  
+  #save(true_tableC,est_tableC,est_tableC_se,mse_tableC100,mse_tableC500,mse_tableC1000,
+       #file=paste(scenario,num_replicas,est_choice,"clustering.RData",sep="_"))
+  
+  true_est_w_data <- (list("true_tableC"=true_tableC,
                "est_tableC"=est_tableC,
                "est_tableC_se"=est_tableC_se,
-               "mse_tableC"=mse_tableC,
+               "mse_tableC100"=mse_tableC100,
+              "mse_tableC500"=mse_tableC500,
+              "mse_tableC1000"=mse_tableC1000,
               
               "Z_true_curves"=list(n100t300C$Z_true_curves,
                                    n100t750C$Z_true_curves,
@@ -1265,28 +1321,35 @@ RunExperiment <- function(scenario, num_replicas, est_choice)
                                   n1000t750C$p_est_curves,
                                   n1000t2000C$p_est_curves),
               "W_cfd"=list(n100t300C$W_cfd,
-                                  n100t750C$W_cfd,
-                                  n100t2000C$W_cfd,
-                                  n500t300C$W_cfd,
-                                  n500t750C$W_cfd,
-                                  n500t2000C$W_cfd,
-                                  n1000t300C$W_cfd,
-                                  n1000t750C$W_cfd,
-                                  n1000t2000C$W_cfd)
+                           n100t750C$W_cfd,
+                           n100t2000C$W_cfd,
+                           n500t300C$W_cfd,
+                           n500t750C$W_cfd,
+                           n500t2000C$W_cfd,
+                           n1000t300C$W_cfd,
+                           n1000t750C$W_cfd,
+                           n1000t2000C$W_cfd)
               ))
-}
+  save(true_est_w_data,file=paste(scenario,num_replicas,est_choice,"true_est_w_data_clustering.RData",sep="_"))
+  }
 
 # EXECUTION:
 
 # }) # profvis end
 
 #test
-set.seed(123)
- A_2_probit <- RunExperiment("A",2,"probit")
- set.seed(123)
- A_2_mul <- RunExperiment("A",2,"multinormial")
+# set.seed(123)
+#  A_2_probit <- RunExperiment("A",2,"probit")
+#  
+#  
+#  
+#  set.seed(123)
+#  A_2_mul <- RunExperiment("A",2,"multinormial")
 # 
-
+ set.seed(123)
+ C_2_probit <- RunExperiment("C",2,"probit")
+ 
+ #save(C_2_probit,file="C_2_probit.RData")
 # set.seed(123)
 # A_100_probit <- RunExperiment("A",100,"probit")
 # 
@@ -1305,6 +1368,7 @@ set.seed(123)
 # 
 # set.seed(123)
 # B_20_multinormial <- RunExperiment("B",20,"multinormial")
+
 
 if(run_parallel)
 {
