@@ -1286,19 +1286,25 @@ RunExperiment <- function(scenario, num_replicas, est_choice)
 
 
 #test
-set.seed(123)
- A_2_probit <- RunExperiment("A",2,"probit")
- set.seed(123)
- A_2_mul <- RunExperiment("A",2,"multinormial")
+# set.seed(123)
+#  A_2_probit <- RunExperiment("A",2,"probit")
+#  set.seed(123)
+#  A_2_mul <- RunExperiment("A",2,"multinormial")
 # 
 
 # set.seed(123)
 # A_100_probit <- RunExperiment("A",100,"probit")
-# 
-# 
-# set.seed(123)
-# A_20_multinomial <- RunExperiment("A",20,"multinormial")
-# 
+
+set.seed(123)
+A_20_multinomial <- RunExperiment("A",100,"multinormial")
+save(A_20_multinomial, file = paste("A",100,"multinormial","clustering_and_curves.RData",sep="_"))
+
+for(n in c(3,6,9))
+{
+  s <- A_20_multinomial$W_cfd[[n]]
+  save( s , file = paste("A",100,"multinormial",n,"thExp_W_cfd.RData",sep="_"))
+}
+
 # set.seed(123)
 # C_20_probit <- RunExperiment("C",20,"probit")
 # 
