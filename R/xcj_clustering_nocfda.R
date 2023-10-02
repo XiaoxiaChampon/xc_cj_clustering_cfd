@@ -241,7 +241,7 @@ mse_bw_matrix <- function(truecurve,estcurve,timestamps01)
   # mseall=c(0)
   ######could probably use apply function here it's also subject level
   mseall <- foreach(i = 1:n, .combine = c, .packages = c("pracma")) %dorng% {
-    return(rbind(trapzfnum(truecurve[,i], estcurve[,i])))
+    return(rbind(trapzfnum(truecurve[,i], estcurve[,i],timestamps01)))
   }
   
   return(mseall)
@@ -294,7 +294,7 @@ mse_bw_matrixp <- function(truecurve,estcurve,timestamps01)
   
   sqrt_2 <- sqrt(2)
   mseall <- foreach(i = 1:n, .combine = c, .packages = c("pracma")) %dorng% {
-    return(rbind(trapzfnump(truecurve[,i], estcurve[,i])/sqrt_2))
+    return(rbind(trapzfnump(truecurve[,i], estcurve[,i],timestamps01)/sqrt_2))
   }
   
   return(mseall)
@@ -1217,43 +1217,35 @@ EstimateCategFuncData_probit <- function(timestamps01, X, basis_size=25, method=
       x2<- X[indv,,2]
       x3<- X[indv,,3]
       
-      if (timeseries_length<=301 && sum(x1)/timeseries_length<0.004){
+      #if (timeseries_length<=301 && sum(x1)/timeseries_length<0.004){
+      probit_binom=function(x_binary){
+          if (sum(x_binary)/timeseries_length<0.004){
+            gam_result_binary <- RunGam(timestamps01, x_binary, "probit", basis_size, method)
+            p_binary <- gam_result_binary$prob
+            p_binary_linpred <- gam_result_binary$linpred
+          }else{
+            gam_result_binary <- RunGam(timestamps01, x_binary, "binomial", basis_size, method)
+            p_binary <- gam_result_binary$prob
+            p_binary_linpred <- gam_result_binary$linpred
+          }
+        return(list("p_binary"=p_binary,"p_binary_linpred"=p_binary_linpred))
+      }
+      r_1 <- probit_binom(x1)
+      p1 <- r_1$p_binary
+      p1_linpred <- r_1$p_binary_linpred
         
-        gam_result_1 <- RunGam(timestamps01, x1, "probit", basis_size, method)
-        p1 <- gam_result_1$prob
-        p1_linpred <- gam_result_1$linpred
+      r_2 <- probit_binom(x2)
+      p2 <- r_2$p_binary
+      p2_linpred <- r_2$p_binary_linpred
         
-        gam_result_2 <- RunGam(timestamps01, x2, "probit", basis_size, method)
-        p2 <- gam_result_2$prob
-        p2_linpred <- gam_result_2$linpred
+      r_3 <- probit_binom(x3)
+      p3 <- r_3$p_binary
+      p3_linpred <- r_3$p_binary_linpred
         
-        gam_result_3 <- RunGam(timestamps01, x3, "probit", basis_size, method)
-        p3 <- gam_result_3$prob
-        p3_linpred <- gam_result_3$linpred
-        denominator_p <- 1+exp(p3_linpred)
-        z1<- (p1_linpred-p3_linpred)-log( (1+exp(p1_linpred))/(denominator_p))
-        z2<- (p2_linpred-p3_linpred)-log( (1+exp(p2_linpred))/(denominator_p))
-      }else{
-        gam_result_1 <- RunGam(timestamps01, x1, "binomial", basis_size, method)
-        p1 <- gam_result_1$prob
-        p1_linpred <- gam_result_1$linpred
-        
-        gam_result_2 <- RunGam(timestamps01, x2, "binomial", basis_size, method)
-        p2 <- gam_result_2$prob
-        p2_linpred <- gam_result_2$linpred
-        
-        gam_result_3 <- RunGam(timestamps01, x3, "binomial", basis_size, method)
-        p3 <- gam_result_3$prob
-        p3_linpred <- gam_result_3$linpred
-        
-        # estimate the latent curves Z
-        denominator_p <- 1 + exp(p3_linpred)
-        z1 <- (p1_linpred-p3_linpred)-log( (1+exp(p1_linpred))/(denominator_p))
-        z2 <- (p2_linpred-p3_linpred)-log( (1+exp(p2_linpred))/(denominator_p))
-        
-        
-      } # end if special case for probit
-      
+      denominator_p <- 1+exp(p3_linpred)
+      z1<- (p1_linpred-p3_linpred)-log( (1+exp(p1_linpred))/(denominator_p))
+      z2<- (p2_linpred-p3_linpred)-log( (1+exp(p2_linpred))/(denominator_p))
+   
       psum <- p1 + p2 + p3
       return(c(c(z1,z2), cbind(p1/psum, p2/psum, p3/psum)))
     }
