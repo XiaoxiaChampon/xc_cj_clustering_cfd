@@ -58,6 +58,14 @@ if(run_parallel)
   # registerDoRNG(123) # ///<<<< THIS CREATES THE ERROR FOR FADPClust !!!
 }
 
+#' Create directories 
+if (!dir.exists("outputs")){
+  dir.create("outputs")
+}
+if (!dir.exists("outputs/clustersims")){
+  dir.create("outputs/clustersims")
+}
+
 # profvis({
 
 
@@ -188,22 +196,6 @@ extract_scores_UNIVFPCA <- function (mZ1,mZ2, tt , PVE=0.95)
   return (list(scores=Scores_est, Phi= Phi_est))
 }
 
-#Function to find the L2 distance between two latent curves
-#' @param  yy- 1D vector (true curve)
-#' @param  yy2-1D vector (estimated curve)
-#' @return : scalar-L2 distance
-trapzfnum <- function(yy,yy2,timestamps01)
-{
-  st=timestamps01[1]
-  et=tail(timestamps01,n=1)
-  x=seq(st,et,length=5000)
-  xx=seq(st,et,length=length(yy))
-  y1 <- cubicspline(xx, yy,x)
-  y2 <- cubicspline(xx, yy2,x)
-  out=sqrt(trapz(x, (y1-y2)^2) )
-  return(out)
-}
-
 #Function to use trapzfnum function and find L2 distance for 2D array, n of them
 #' @param  truecurve- 2D array (true curve)
 #' @param   estcurve-2D array (estimated curve)
@@ -211,13 +203,13 @@ trapzfnum <- function(yy,yy2,timestamps01)
 
 mse_bw_matrix <- function(truecurve,estcurve,timestamps01)
 {
-  source("R/acj/trapzfnum_function.R")
   
   n=dim(truecurve)[2]
   # datapoints=dim(truecurve)[1]
   # mseall=c(0)
   ######could probably use apply function here it's also subject level
   mseall <- foreach(i = 1:n, .combine = c, .packages = c("pracma")) %dorng% {
+    source("R/acj/trapzfnum_function.R")
     return(rbind(trapzfnum(truecurve[,i], estcurve[,i],timestamps01)))
   }
   
@@ -228,8 +220,6 @@ mse_bw_matrix <- function(truecurve,estcurve,timestamps01)
 #Function to use trapzfnump function and find Hellinger distance for 2D array, n of them
 mse_bw_matrixp <- function(truecurve,estcurve,timestamps01)
 {
-  source("R/acj/trapzfnum_function.R")
-  
   n=dim(truecurve)[2]
   # datapoints= dim(truecurve)[1]
   # mseall=c(0)
@@ -241,6 +231,7 @@ mse_bw_matrixp <- function(truecurve,estcurve,timestamps01)
   
   sqrt_2 <- sqrt(2)
   mseall <- foreach(i = 1:n, .combine = c, .packages = c("pracma")) %dorng% {
+    source("R/acj/trapzfnum_function.R")
     return(rbind(trapzfnump(truecurve[,i], estcurve[,i],timestamps01)/sqrt_2))
   }
   
@@ -283,7 +274,7 @@ cfda_score_function <- function(cfda_data, nCores,timestamps01,basis_num ){
 
 
 ClusterSimulation <- function(num_indvs, timeseries_length,
-                              scenario, num_replicas, est_choice, run_hellinger)
+                              scenario, num_replicas, est_choice, run_hellinger, temp_folder)
 {
   cat("Cluster Simulation\nNum Indvs:\t", num_indvs,
       "\nTimeseries Len:\t", timeseries_length,
@@ -450,13 +441,13 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
     if (run_hellinger)
     {
       # evaluate performance Z and P
-      rmse1_temp <- c(by(mse_bw_matrix(Z1, categFD_est$Z1_est, timestamp01) , true_cluster, mean))
-      rmse2_temp <- c(by(mse_bw_matrix(Z2, categFD_est$Z2_est, timestamp01), true_cluster, mean))
+      rmse1_temp <- c(by(mse_bw_matrix(Z1, categFD_est$Z1_est, timestamps01) , true_cluster, mean))
+      rmse2_temp <- c(by(mse_bw_matrix(Z2, categFD_est$Z2_est, timestamps01), true_cluster, mean))
       rmse[replica_idx, ,] <- rbind(rmse1_temp, rmse2_temp )
 
-      error.p1 <- mse_bw_matrixp(p1, categFD_est$p1_est, timestamp01)
-      error.p2 <- mse_bw_matrixp(p2, categFD_est$p2_est, timestamp01)
-      error.p3 <- mse_bw_matrixp(p3, categFD_est$p3_est, timestamp01)
+      error.p1 <- mse_bw_matrixp(p1, categFD_est$p1_est, timestamps01)
+      error.p2 <- mse_bw_matrixp(p2, categFD_est$p2_est, timestamps01)
+      error.p3 <- mse_bw_matrixp(p3, categFD_est$p3_est, timestamps01)
 
 
       hellinger[replica_idx, ,] <-  rbind( c(by(error.p1, true_cluster, mean)),
@@ -665,8 +656,8 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
                                 "dbscan RI","dbscan ARI","dbscan cpn")
   print("returning")
   
-  save(time_elapsed, file=paste("time_elapsed_", num_indvs, "_", timeseries_length, "_",
-                                scenario, "_", num_replicas, "_", est_choice, "_", run_hellinger, ".RData", sep=""))
+  save(time_elapsed, file=file.path(temp_folder, paste("time_elapsed_", num_indvs, "_", timeseries_length, "_",
+                                scenario, "_", num_replicas, "_", est_choice, "_", run_hellinger, ".RData", sep="")))
   
   return_vals <- list("cluster_table_true"=cluster_table_true,
                       "cluster_table_est"=cluster_table_est,
@@ -676,6 +667,9 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
                       "p_true_curves"=p_true_curve,
                       "p_est_curves"=p_est_curve,
                       "W_cfd"=W_cfd)
+  
+  save(return_vals, file=file.path(temp_folder, paste("ClusterSim_", num_indvs, "_", timeseries_length, "_",
+                               scenario, "_", num_replicas, "_", est_choice, "_", run_hellinger, ".RData", sep="")))
   
   if (run_hellinger)
   {
@@ -1127,24 +1121,31 @@ PsiFunc <- function(klen, timestamps01)
   return(rbind(psi_k1, psi_k2))
 }
 
-RunExperiment <- function(scenario, num_replicas, est_choice)
+RunExperiment <- function(scenario, num_replicas, est_choice, some_identifier="noid")
 {
+  temp_folder <- file.path("outputs", "clustersims", paste(scenario, "_", num_replicas, "_", est_choice, "_", some_identifier, sep=""))
+  # Empty the directory if it exists
+  if(dir.exists(temp_folder)){
+    unlink(temp_folder, recursive = TRUE)
+  }
+  dir.create(temp_folder)
+  
   # scenario="C"
   # num_replicas=3
   # est_choice="probit"
-  n100t300C <- ClusterSimulation(100,300,scenario,num_replicas,est_choice,TRUE)
-  n100t750C <- ClusterSimulation(100,750,scenario,num_replicas,est_choice,TRUE)
-  n100t2000C <- ClusterSimulation(100,2000,scenario,num_replicas,est_choice,TRUE)
+  n100t300C <- ClusterSimulation(100,300,scenario,num_replicas,est_choice,TRUE,temp_folder)
+  n100t750C <- ClusterSimulation(100,750,scenario,num_replicas,est_choice,TRUE,temp_folder)
+  n100t2000C <- ClusterSimulation(100,2000,scenario,num_replicas,est_choice,TRUE,temp_folder)
   
   
-  n500t300C <- ClusterSimulation(500,300,scenario,num_replicas,est_choice,TRUE)
-  n500t750C <- ClusterSimulation(500,750,scenario,num_replicas,est_choice,TRUE)
-  n500t2000C <- ClusterSimulation(500,2000,scenario,num_replicas,est_choice,TRUE)
+  n500t300C <- ClusterSimulation(500,300,scenario,num_replicas,est_choice,TRUE,temp_folder)
+  n500t750C <- ClusterSimulation(500,750,scenario,num_replicas,est_choice,TRUE,temp_folder)
+  n500t2000C <- ClusterSimulation(500,2000,scenario,num_replicas,est_choice,TRUE,temp_folder)
   
   
-  n1000t300C <- ClusterSimulation(1000,300,scenario,num_replicas,est_choice,TRUE)
-  n1000t750C <- ClusterSimulation(1000,750,scenario,num_replicas,est_choice,TRUE)
-  n1000t2000C <- ClusterSimulation(1000,2000,scenario,num_replicas,est_choice,TRUE)
+  n1000t300C <- ClusterSimulation(1000,300,scenario,num_replicas,est_choice,TRUE,temp_folder)
+  n1000t750C <- ClusterSimulation(1000,750,scenario,num_replicas,est_choice,TRUE,temp_folder)
+  n1000t2000C <- ClusterSimulation(1000,2000,scenario,num_replicas,est_choice,TRUE,temp_folder)
   
   
   true_tableC <- rbind(n100t300C$cluster_table_true,n100t750C$cluster_table_true,n100t2000C$cluster_table_true,
@@ -1169,9 +1170,6 @@ RunExperiment <- function(scenario, num_replicas, est_choice)
                             "n500t300","n500t750","n500t2000",
                             "n1000t300","n1000t750","n1000t2000")
   
-  
-  save(true_tableC,est_tableC,est_tableC_se,file=paste(scenario,num_replicas,est_choice,"_beforeMSE_clustering.RData",sep="_"))
-  
   mse_tableC100 <- rbind(
     c(n100t300C$mse[1,1],n100t300C$mse[2,1],n100t300C$hellinger[1,1],n100t300C$hellinger[2,1],n100t300C$hellinger[3,1]),
     c(n100t750C$mse[1,1],n100t750C$mse[2,1],n100t750C$hellinger[1,1],n100t750C$hellinger[2,1],n100t750C$hellinger[3,1]),
@@ -1185,7 +1183,6 @@ RunExperiment <- function(scenario, num_replicas, est_choice)
     c(n100t750C$mse[1,3],n100t750C$mse[2,3],n100t750C$hellinger[1,3],n100t750C$hellinger[2,3],n100t750C$hellinger[3,3]),
     c(n100t2000C$mse[1,3],n100t2000C$mse[2,3],n100t2000C$hellinger[1,3],n100t2000C$hellinger[2,3],n100t2000C$hellinger[3,3])
   )
-  
   
   rownames(mse_tableC100) <- c("s1n100t300","s1n100t750","s1n100t2000",
                          "s2n100t300","s2n100t750","s2n100t2000",
@@ -1291,7 +1288,7 @@ RunExperiment <- function(scenario, num_replicas, est_choice)
                            n1000t750C$W_cfd,
                            n1000t2000C$W_cfd)
               ))
-  save(true_est_w_data,file=paste(scenario,num_replicas,est_choice,"true_est_w_data_clustering.RData",sep="_"))
+  save(true_est_w_data,file=file.path("outputs", paste(scenario,num_replicas,est_choice,some_identifier,"true_est_w_data_clustering.RData",sep="_")))
   }
 
 # EXECUTION:
@@ -1303,13 +1300,13 @@ RunExperiment <- function(scenario, num_replicas, est_choice)
 # set.seed(123)
 #  A_2_probit <- RunExperiment("A",2,"probit")
 #  
-#  
+# 
 #  
 #  set.seed(123)
 #  A_2_mul <- RunExperiment("A",2,"multinormial")
 # 
  set.seed(123)
- A_3_probit <- RunExperiment("A",3,"probit")
+ A_2_probit <- RunExperiment("A",2,"probit","test")
  
  #save(C_2_probit,file="C_2_probit.RData")
 # set.seed(123)
