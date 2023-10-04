@@ -189,13 +189,13 @@ extract_scores_UNIVFPCA <- function (mZ1,mZ2, tt , PVE=0.95)
 }
 
 #Function to find the L2 distance between two latent curves
-#Input: yy- 1D vector (true curve)
-#       yy2-1D vector (estimated curve)
-#Output: scalar-L2 distance
-trapzfnum <- function(yy,yy2)
+#' @param  yy- 1D vector (true curve)
+#' @param  yy2-1D vector (estimated curve)
+#' @return : scalar-L2 distance
+trapzfnum <- function(yy,yy2,timestamps01)
 {
-  st=0.0001
-  et=1
+  st=timestamps01[1]
+  et=tail(timestamps01,n=1)
   x=seq(st,et,length=5000)
   xx=seq(st,et,length=length(yy))
   y1 <- cubicspline(xx, yy,x)
@@ -205,66 +205,30 @@ trapzfnum <- function(yy,yy2)
 }
 
 #Function to use trapzfnum function and find L2 distance for 2D array, n of them
-mse_bw_matrix <- function(truecurve,estcurve)
+#' @param  truecurve- 2D array (true curve)
+#' @param   estcurve-2D array (estimated curve)
+#' @return : scalar-L2 distance
+
+mse_bw_matrix <- function(truecurve,estcurve,timestamps01)
 {
-  trapzfnum <- function(yy,yy2)
-  {
-    st=0.0001
-    et=1
-    x=seq(st,et,length=5000)
-    xx=seq(st,et,length=length(yy))
-    y1 <- cubicspline(xx, yy,x)
-    y2 <- cubicspline(xx, yy2,x)
-    out=sqrt(trapz(x, (y1-y2)^2) )
-    return(out)
-  }
+  source("R/acj/trapzfnum_function.R")
   
   n=dim(truecurve)[2]
   # datapoints=dim(truecurve)[1]
   # mseall=c(0)
   ######could probably use apply function here it's also subject level
   mseall <- foreach(i = 1:n, .combine = c, .packages = c("pracma")) %dorng% {
-    return(rbind(trapzfnum(truecurve[,i], estcurve[,i])))
+    return(rbind(trapzfnum(truecurve[,i], estcurve[,i],timestamps01)))
   }
   
   return(mseall)
 }
 
 
-#Function to find the Hellinger distance between two probability curves
-#Input: yy- 1D vector (true curve)
-#       yy2-1D vector (estimated curve)
-#Output: scalar-Hellinger distance
-trapzfnump <- function(yy,yy2)
-{
-  st=0.0001
-  et=1
-  x=seq(st,et,length=5000)
-  xx=seq(st,et,length=length(yy))
-  y1 <- cubicspline(xx, yy,x)
-  y1[y1<0]=0
-  y2 <- cubicspline(xx, yy2,x)
-  y2[y2<0]=0
-  out=sqrt(trapz(x, (sqrt(y1)-sqrt(y2))^2) )
-  return(out)
-}
-
 #Function to use trapzfnump function and find Hellinger distance for 2D array, n of them
-mse_bw_matrixp <- function(truecurve,estcurve)
+mse_bw_matrixp <- function(truecurve,estcurve,timestamps01)
 {
-  trapzfnump <- function(yy,yy2)
-  {
-    st=0.0001
-    et=1
-    x=seq(st,et,length=5000)
-    xx=seq(st,et,length=length(yy))
-    y1 <- cubicspline(xx, yy,x)
-    y1[y1<0]=0
-    y2 <- cubicspline(xx, yy2,x)
-    y2[y2<0]=0
-    out=sqrt(trapz(x, (sqrt(y1)-sqrt(y2))^2) )
-    return(out)
-  }
+  source("R/acj/trapzfnum_function.R")
   
   n=dim(truecurve)[2]
   # datapoints= dim(truecurve)[1]
@@ -277,7 +241,7 @@ mse_bw_matrixp <- function(truecurve,estcurve)
   
   sqrt_2 <- sqrt(2)
   mseall <- foreach(i = 1:n, .combine = c, .packages = c("pracma")) %dorng% {
-    return(rbind(trapzfnump(truecurve[,i], estcurve[,i])/sqrt_2))
+    return(rbind(trapzfnump(truecurve[,i], estcurve[,i],timestamps01)/sqrt_2))
   }
   
   return(mseall)
@@ -442,8 +406,8 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
       numcat <- length(catorder)
       refcat <- catorder[numcat]
       count_iter <- 0
-      while ((min(as.numeric(tolcat)) == 1 && categ_func_data_list$W[, indv][timeseries_length] == refcat && count_iter < 100)
-             || (min(as.numeric(tolcat)) == 1 && categ_func_data_list$W[, indv][1] == refcat && count_iter < 100)
+      while (count_iter < 100 && 
+             ((min(as.numeric(tolcat)) < 2) || (length(categ_func_data_list$W[, indv]) < numcat))
              )
       {
         count_iter <- count_iter + 1
@@ -486,13 +450,13 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
     if (run_hellinger)
     {
       # evaluate performance Z and P
-      rmse1_temp <- c(by(mse_bw_matrix(Z1,categFD_est$Z1_est) , true_cluster, mean))
-      rmse2_temp <- c(by(mse_bw_matrix(Z2,categFD_est$Z2_est), true_cluster, mean))
-      rmse[replica_idx, ,] <- rbind(rmse1_temp,rmse2_temp )
+      rmse1_temp <- c(by(mse_bw_matrix(Z1, categFD_est$Z1_est, timestamp01) , true_cluster, mean))
+      rmse2_temp <- c(by(mse_bw_matrix(Z2, categFD_est$Z2_est, timestamp01), true_cluster, mean))
+      rmse[replica_idx, ,] <- rbind(rmse1_temp, rmse2_temp )
 
-      error.p1<- mse_bw_matrixp(p1,categFD_est$p1_est)
-      error.p2<- mse_bw_matrixp(p2,categFD_est$p2_est)
-      error.p3<- mse_bw_matrixp(p3,categFD_est$p3_est)
+      error.p1 <- mse_bw_matrixp(p1, categFD_est$p1_est, timestamp01)
+      error.p2 <- mse_bw_matrixp(p2, categFD_est$p2_est, timestamp01)
+      error.p3 <- mse_bw_matrixp(p3, categFD_est$p3_est, timestamp01)
 
 
       hellinger[replica_idx, ,] <-  rbind( c(by(error.p1, true_cluster, mean)),
@@ -749,12 +713,12 @@ EstimateCategFuncData <- function(choice, timestamps01, W, basis_size=25, method
 {
   if(choice == "probit"){
     X <- GetXFromW(W)
-    return(EstimateCategFuncData_probit(timestamps01, X, basis_size=25, method="ML"))
+    return(EstimateCategFuncData_probit(timestamps01, X, basis_size, method, 1/150))
   }else if(choice == "binormial"){
     X <- GetXFromW(W)
-    return(EstimateCategFuncData_binorm(timestamps01, X, basis_size=25, method="ML"))
+    return(EstimateCategFuncData_binorm(timestamps01, X, basis_size, method))
   }else if(choice == "multinormial"){
-    return(EstimateCategFuncData_multinormial(timestamps01, W, basis_size=25, method="ML"))
+    return(EstimateCategFuncData_multinormial(timestamps01, W, basis_size, method))
   }
 }
 
@@ -797,7 +761,7 @@ EstimateCategFuncData_multinormial <- function(timestamps01, W, basis_size=25, m
 
 
 
-EstimateCategFuncData_probit <- function(timestamps01, X, basis_size=25, method="ML")
+EstimateCategFuncData_probit <- function(timestamps01, X, basis_size=25, method="ML", threshold_probability=0.004)
 {
   num_indv<- dim(X)[1]
   timeseries_length<- dim(X)[2]
@@ -812,7 +776,7 @@ EstimateCategFuncData_probit <- function(timestamps01, X, basis_size=25, method=
   #   x2<- X[indv,,2]
   #   x3<- X[indv,,3]
   # 
-  #   if (timeseries_length<=301 && sum(x1)/timeseries_length<0.004){
+  #   if (timeseries_length<=301 && sum(x1)/timeseries_length<threshold_probability){
   # 
   #     gam_result_1 <- RunGam(timestamps01, x1, "probit", basis_size, method)
   #     p1 <- gam_result_1$prob
@@ -867,42 +831,35 @@ EstimateCategFuncData_probit <- function(timestamps01, X, basis_size=25, method=
     x2<- X[indv,,2]
     x3<- X[indv,,3]
     
-    if (timeseries_length<=301 && sum(x1)/timeseries_length<0.004){
+    probit_binom <- function(x_binary){
+      if (sum(x_binary)/timeseries_length < threshold_probability){
+        gam_result_binary <- RunGam(timestamps01, x_binary, "probit", basis_size, method)
+        p_binary <- gam_result_binary$prob
+        p_binary_linpred <- gam_result_binary$linpred
+      }else{
+        gam_result_binary <- RunGam(timestamps01, x_binary, "binomial", basis_size, method)
+        p_binary <- gam_result_binary$prob
+        p_binary_linpred <- gam_result_binary$linpred
+      }
+      return(list("p_binary"=p_binary,"p_binary_linpred"=p_binary_linpred))
+    }
+    
+    r_1 <- probit_binom(x1)
+    p1 <- r_1$p_binary
+    p1_linpred <- r_1$p_binary_linpred
+    
+    r_2 <- probit_binom(x2)
+    p2 <- r_2$p_binary
+    p2_linpred <- r_2$p_binary_linpred
+    
+    r_3 <- probit_binom(x3)
+    p3 <- r_3$p_binary
+    p3_linpred <- r_3$p_binary_linpred
       
-      gam_result_1 <- RunGam(timestamps01, x1, "probit", basis_size, method)
-      p1 <- gam_result_1$prob
-      p1_linpred <- gam_result_1$linpred
-      
-      gam_result_2 <- RunGam(timestamps01, x2, "probit", basis_size, method)
-      p2 <- gam_result_2$prob
-      p2_linpred <- gam_result_2$linpred
-      
-      gam_result_3 <- RunGam(timestamps01, x3, "probit", basis_size, method)
-      p3 <- gam_result_3$prob
-      p3_linpred <- gam_result_3$linpred
-      denominator_p <- 1+exp(p3_linpred)
-      z1<- (p1_linpred-p3_linpred)-log( (1+exp(p1_linpred))/(denominator_p))
-      z2<- (p2_linpred-p3_linpred)-log( (1+exp(p2_linpred))/(denominator_p))
-    }else{
-      gam_result_1 <- RunGam(timestamps01, x1, "binomial", basis_size, method)
-      p1 <- gam_result_1$prob
-      p1_linpred <- gam_result_1$linpred
-      
-      gam_result_2 <- RunGam(timestamps01, x2, "binomial", basis_size, method)
-      p2 <- gam_result_2$prob
-      p2_linpred <- gam_result_2$linpred
-      
-      gam_result_3 <- RunGam(timestamps01, x3, "binomial", basis_size, method)
-      p3 <- gam_result_3$prob
-      p3_linpred <- gam_result_3$linpred
-      
-      # estimate the latent curves Z
-      denominator_p <- 1 + exp(p3_linpred)
-      z1 <- (p1_linpred-p3_linpred)-log( (1+exp(p1_linpred))/(denominator_p))
-      z2 <- (p2_linpred-p3_linpred)-log( (1+exp(p2_linpred))/(denominator_p))
-      
-      
-    } # end if special case for probit
+    # estimate the latent curves Z
+    denominator_p <- 1 + exp(p3_linpred)
+    z1 <- (p1_linpred-p3_linpred)-log( (1+exp(p1_linpred))/(denominator_p))
+    z2 <- (p2_linpred-p3_linpred)-log( (1+exp(p2_linpred))/(denominator_p))
     
     psum <- p1 + p2 + p3
     return(c(c(z1,z2), cbind(p1/psum, p2/psum, p3/psum)))
@@ -1352,7 +1309,7 @@ RunExperiment <- function(scenario, num_replicas, est_choice)
 #  A_2_mul <- RunExperiment("A",2,"multinormial")
 # 
  set.seed(123)
- C_2_probit <- RunExperiment("C",2,"probit")
+ A_3_probit <- RunExperiment("A",3,"probit")
  
  #save(C_2_probit,file="C_2_probit.RData")
 # set.seed(123)
