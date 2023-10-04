@@ -708,10 +708,10 @@ EstimateCategFuncData <- function(choice, timestamps01, W, basis_size=25, method
   if(choice == "probit"){
     X <- GetXFromW(W)
     return(EstimateCategFuncData_probit(timestamps01, X, basis_size, method, 1/150))
-  }else if(choice == "binormial"){
+  }else if(choice == "binomial"){
     X <- GetXFromW(W)
     return(EstimateCategFuncData_binorm(timestamps01, X, basis_size, method))
-  }else if(choice == "multinormial"){
+  }else if(choice == "multinomial"){
     return(EstimateCategFuncData_multinormial(timestamps01, W, basis_size, method))
   }
 }
@@ -1129,6 +1129,7 @@ RunExperiment <- function(scenario, num_replicas, est_choice, some_identifier="n
     unlink(temp_folder, recursive = TRUE)
   }
   dir.create(temp_folder)
+  print(temp_folder)
   
   # scenario="C"
   # num_replicas=3
@@ -1288,8 +1289,11 @@ RunExperiment <- function(scenario, num_replicas, est_choice, some_identifier="n
                            n1000t750C$W_cfd,
                            n1000t2000C$W_cfd)
               ))
+  
   save(true_est_w_data,file=file.path("outputs", paste(scenario,num_replicas,est_choice,some_identifier,"true_est_w_data_clustering.RData",sep="_")))
-  }
+  
+  return(true_est_w_data)
+}
 
 # EXECUTION:
 
@@ -1306,7 +1310,8 @@ RunExperiment <- function(scenario, num_replicas, est_choice, some_identifier="n
 #  A_2_mul <- RunExperiment("A",2,"multinormial")
 # 
  set.seed(123)
- A_2_probit <- RunExperiment("A",2,"probit","test")
+ # A_2_probit <- RunExperiment("A",2,"probit","test")
+ A_2_binomial <- RunExperiment("A",2,"binomial","test")
  
  #save(C_2_probit,file="C_2_probit.RData")
 # set.seed(123)
