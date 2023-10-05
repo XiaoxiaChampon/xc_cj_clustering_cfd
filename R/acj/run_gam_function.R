@@ -35,7 +35,7 @@ RunGam <- function(timestamps01, in_x, family_choice, basis_size, method)
   }else if(family_choice=="probit"){
     z_probit <- fit_binom$linear.predictors
     
-    prob_probit <- pnorm(z1probit)
+    prob_probit <- pnorm(z_probit)
     zprobit_reciprocal <- 1/ prob_probit
     prob_linpred <- -log(zprobit_reciprocal-1)
   }
