@@ -1311,7 +1311,8 @@ RunExperiment <- function(scenario, num_replicas, est_choice, some_identifier="n
 # 
  set.seed(123)
  # A_2_probit <- RunExperiment("A",2,"probit","test")
- A_2_binomial <- RunExperiment("A",2,"binomial","test")
+ # A_2_binomial <- RunExperiment("A",2,"binomial","test")
+ A_2_binomial <- RunExperiment("A",2,"multinomial","test")
  
  #save(C_2_probit,file="C_2_probit.RData")
 # set.seed(123)

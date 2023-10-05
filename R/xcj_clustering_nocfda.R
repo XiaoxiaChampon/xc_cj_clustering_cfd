@@ -1881,21 +1881,24 @@ RunExperimentSub <- function(scenario, num_replicas, est_choice,n1000t2000data)
 set.seed(123)
 #A_2_probit_full <- RunExperiment("A",2,"probit")
 
-load("A_100_multinormial_9_thExp_W_cfd.RData")
+load("./Generated_data/A_100_multinormial/A_100_multinormial_9_thExp_W_cfd.RData")
 W_cfd=s
 
-load("A_100_multinormial_9_thExp_Z_true_curves.RData")
+load("./Generated_data/A_100_multinormial/A_100_multinormial_9_thExp_Z_true_curves.RData")
 Z_true_curves=s
 
-load("A_100_multinormial_9_thExp_p_true_curves.RData")
+load("./Generated_data/A_100_multinormial/A_100_multinormial_9_thExp_p_true_curves.RData")
 p_true_curves=s
 
 n1000t2000data=list("W_cfd"=W_cfd,"Z_true_curves"=Z_true_curves,
                     "p_true_curves"=p_true_curves)
 
+A_20_probit_new <- RunExperimentSub("A",20,"probit",n1000t2000data=n1000t2000data)
+save(A_20_probit_new,file="A_20_probit_new.RData")
 
-A_100_probit_new <- RunExperimentSub("A",100,"probit",n1000t2000data=n1000t2000data)
-save(A_100_probit_new,file="A_100_probit_new.RData")
+# A_100_probit_new <- RunExperimentSub("A",100,"probit",n1000t2000data=n1000t2000data)
+# save(A_100_probit_new,file="A_100_probit_new.RData")
+
 # 
 #  
 #  
