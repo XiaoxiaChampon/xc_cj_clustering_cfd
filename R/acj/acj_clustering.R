@@ -702,7 +702,13 @@ GetXFromW <- function(W)
 }
 
 #' Function to select 
-#' @param choice "probit", "binomial", or "
+#' @param choice "probit", "binomial",  or "multinormial"
+#' @param timestamps01, 1D array, time interval that cfd is observed
+#' @param  W: 2D array, t*n, t: the number of time points, n: the number of individuals
+#' @param  basis_size=25, the number of basis function used 
+#' @param  method="ML"
+#' @return list of 2D array: True Z curves , Est Z curves, True p curves, Est p curves
+#'                           all have dimension t*n
 EstimateCategFuncData <- function(choice, timestamps01, W, basis_size=25, method="ML")
 {
   if(choice == "probit"){
@@ -717,7 +723,12 @@ EstimateCategFuncData <- function(choice, timestamps01, W, basis_size=25, method
 }
 
 #'Function to estimate z and p using wood_multinormial
-#'
+#' @param timestamps01, 1D array, time interval that cfd is observed
+#' @param  W: 2D array, t*n, t: the number of time points, n: the number of individuals
+#' @param  basis_size=25, the number of basis function used 
+#' @param  method="ML"
+#' @return list of 2D array: True Z curves , Est Z curves, True p curves, Est p curves
+#'                           all have dimension t*n
 
 EstimateCategFuncData_multinormial <- function(timestamps01, W, basis_size=25, method="ML")
 {
@@ -753,8 +764,13 @@ EstimateCategFuncData_multinormial <- function(timestamps01, W, basis_size=25, m
 }
 
 
-
-
+#'Function to estimate z and p using probit
+#' @param timestamps01, 1D array, time interval that cfd is observed
+#' @param  X: 3D array, t*n*Q, t: the number of time points, n: the number of individuals, Q: the number of categories
+#' @param  basis_size=25, the number of basis function used 
+#' @param  method="ML"
+#' @return list of 2D array: True Z curves , Est Z curves, True p curves, Est p curves
+#'                           all have dimension t*n
 EstimateCategFuncData_probit <- function(timestamps01, X, basis_size=25, method="ML", threshold_probability=0.004)
 {
   num_indv<- dim(X)[1]
@@ -871,6 +887,13 @@ EstimateCategFuncData_probit <- function(timestamps01, X, basis_size=25, method=
              p3_est=t(p[,,3]) ))
 }
 
+#'Function to estimate z and p using binom
+#' @param timestamps01, 1D array, time interval that cfd is observed
+#' @param  X: 3D array, t*n*Q, t: the number of time points, n: the number of individuals, Q: the number of categories
+#' @param  basis_size=25, the number of basis function used 
+#' @param  method="ML"
+#' @return list of 2D array: True Z curves , Est Z curves, True p curves, Est p curves
+#'                           all have dimension t*n
 
 EstimateCategFuncData_binorm <- function(timestamps01, X, basis_size=25, method="ML")
 {
