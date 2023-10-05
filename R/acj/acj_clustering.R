@@ -325,6 +325,7 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
   Z_true_curve <- Z_est_curve <- list()
   p_true_curve <- p_est_curve <- list()
   W_cfd <- list()
+  total_regens <- 0
   for(replica_idx in 1:num_replicas)
   {
     cat("\nNum Indvs:", num_indvs,
@@ -401,10 +402,9 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
       refcat <- catorder[numcat]
       count_iter <- 0
       while (count_iter < 100 && 
-             ((min(as.numeric(tolcat)) < 2) 
-              || (numcat < length(Q_vals))
-              ||(timeseries_length==300 && numcat == length(Q_vals) && min(as.numeric(tolcat)) <4)
-              ||(timeseries_length==750 && numcat == length(Q_vals) && min(as.numeric(tolcat)) <6)
+             ( (numcat < length(Q_vals))
+              ||(timeseries_length==300  && min(as.numeric(tolcat)) <4)
+              ||(timeseries_length==750  && min(as.numeric(tolcat)) <6)
              )
              )
       {
@@ -431,6 +431,7 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
         numcat <- length(catorder)
         refcat <- catorder[numcat]
       } # end while
+      total_regens <- total_regens + count_iter
     } # end for(indv in 1:num_indvs)
 
     #Estimation
@@ -516,7 +517,7 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
     est_fadp <- cbind(est_fadp, est_fadp_temp)
     
     cat("Done replica:", replica_idx, "\n")
-  } # END of "for(replica_idx in 1:num_replicas)'
+  }# END of "for(replica_idx in 1:num_replicas)'
 
   cat("\n replicas done \n")
   
@@ -663,7 +664,7 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
                                 "dbscan RI","dbscan ARI","dbscan cpn")
   print("returning")
   
-  save(time_elapsed, file=file.path(temp_folder, paste("time_elapsed_", num_indvs, "_", timeseries_length, "_",
+  save(time_elapsed, total_regens, file=file.path(temp_folder, paste("time_elapsed_", num_indvs, "_", timeseries_length, "_",
                                 scenario, "_", num_replicas, "_", est_choice, "_", run_hellinger, ".RData", sep="")))
   
   return_vals <- list("cluster_table_true"=cluster_table_true,
