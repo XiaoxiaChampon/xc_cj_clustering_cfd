@@ -1,3 +1,10 @@
+############################################################
+# Article: Functions Needed for running gam on binary or categorical functional data
+# Author:  Xiaoxia Champon, Ana-Maria Staicu, Chathura Jayalath
+# Date: 09/25/2023
+##############################################################
+
+
 #' Runs gam on the given data and returns results
 #' Fits a binomial to describe the given in_x
 #' @param timestamps01 current time value
