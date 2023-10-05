@@ -392,13 +392,20 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
       # 1. check weather one category only appears 1 time and is it in the end of the timeseries
       # 2. OR is it appearing only one time in the begining
       # 3. OR if the category is less thant Q total category
-      tolcat <- table(categ_func_data_list$W[, indv])
+      # In general, one category only occurs 2 times
+      # If timepoints=300, one category only occurs less than 4 times 3/300=0.01
+      #If timepoints=750, one category only occurs less than 6 times 5/750=0.0067
+      tolcat <- table(categ_func_data_list$W[,indv])
       catorder <- order(tolcat, decreasing = TRUE)
       numcat <- length(catorder)
       refcat <- catorder[numcat]
       count_iter <- 0
       while (count_iter < 100 && 
-             ((min(as.numeric(tolcat)) < 2) || (length(categ_func_data_list$W[, indv]) < numcat))
+             ((min(as.numeric(tolcat)) < 2) 
+              || (numcat < length(Q_vals))
+              ||(timeseries_length==300 && numcat == length(Q_vals) && min(as.numeric(tolcat)) <4)
+              ||(timeseries_length==750 && numcat == length(Q_vals) && min(as.numeric(tolcat)) <6)
+             )
              )
       {
         count_iter <- count_iter + 1
