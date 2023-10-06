@@ -403,8 +403,8 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
       count_iter <- 0
       while (count_iter < 100 && 
              ( (numcat < length(Q_vals))
-              ||(timeseries_length==300  && min(as.numeric(tolcat)) <4)
-              ||(timeseries_length==750  && min(as.numeric(tolcat)) <6)
+              ||(timeseries_length==300  && min(as.numeric(tolcat)) < 4)
+              ||(timeseries_length==750  && min(as.numeric(tolcat)) < 10)
              )
              )
       {
@@ -1341,14 +1341,17 @@ RunExperiment <- function(scenario, num_replicas, est_choice, some_identifier="n
 #  A_2_mul <- RunExperiment("A",2,"multinormial")
 # 
 
- set.seed(123)
- A_2_probit <- RunExperiment("A",2,"probit","test")
- 
- set.seed(123)
- A_2_binomial <- RunExperiment("A",2,"binomial","test")
- 
- set.seed(123)
- A_2_multinomial <- RunExperiment("A",2,"multinomial","test")
+# set.seed(123)
+# A_2_probit <- RunExperiment("A",2,"probit","test")
+# 
+# set.seed(123)
+# A_2_binomial <- RunExperiment("A",2,"binomial","test")
+# 
+# set.seed(123)
+# A_2_multinomial <- RunExperiment("A",2,"multinomial","test")
+
+set.seed(123)
+A_100_binomial <- RunExperiment("A",100,"binomial","paper1")
  
  #save(C_2_probit,file="C_2_probit.RData")
 # set.seed(123)
