@@ -491,12 +491,13 @@ if (TRUE) {
   #   "./R/XCATFDA/R/catfda_experiment_functions.R",
   #   "./R/XCATFDA/R/catfda_main.R"
   # )
-  files <- c(
-    "./R/xcj_clustering_nocfda.R",
-    "./R/cfda_preda.R",
-    "./R/clustering_distance.R",
-    "./R/clustering_sim.R"
-  )
+  # files <- c(
+  #   "./R/xcj_clustering_nocfda.R",
+  #   "./R/cfda_preda.R",
+  #   "./R/clustering_distance.R",
+  #   "./R/clustering_sim.R"
+  # )
+  files <- c("./R/catfda-package.R")
   print(files)
   dep_info <- analyze_internal_dependencies_multi(files)
   # Shows duplicate function names and their original files

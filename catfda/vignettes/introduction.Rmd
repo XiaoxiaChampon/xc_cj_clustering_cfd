@@ -1,0 +1,259 @@
+---
+title: "Introduction to catfda: Categorical Functional Data Analysis"
+author: "Package Authors"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Introduction to catfda}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5
+)
+```
+
+```{r setup}
+library(catfda)
+```
+
+## Introduction
+
+The `catfda` package provides comprehensive tools for analyzing categorical functional data. It implements various methods for estimating latent Gaussian processes and probability curves from categorical time series data.
+
+## Basic Usage
+
+### Data Format
+
+The package works with categorical functional data in two main formats:
+
+1. **Categorical matrix (W)**: A matrix where rows represent time points and columns represent individuals, with categorical values (e.g., 1, 2, 3, "A", "B", "C")
+2. **One-hot encoded array (X)**: A 3D array with dimensions (individuals × time × categories) containing binary indicators
+
+### Simple Example
+
+Let's start with a simple example using synthetic data:
+
+```{r basic_example}
+# Set parameters
+set.seed(123)
+n_time <- 50
+n_individuals <- 10
+time_points <- seq(0, 1, length.out = n_time)
+
+# Generate synthetic categorical data (3 categories)
+w_mat <- matrix(sample(1:3, n_time * n_individuals, replace = TRUE),
+                nrow = n_time, ncol = n_individuals)
+
+# Display the data structure
+dim(w_mat)
+head(w_mat)
+```
+
+### Estimation Methods
+
+The package provides three main estimation approaches:
+
+#### 1. Multinomial Approach
+
+The multinomial method fits a single GAM with multinomial family:
+
+```{r multinomial}
+# Estimate using multinomial approach
+result_multi <- estimate_categ_func_data("multinomial", time_points, w_mat)
+
+# Check the output structure
+names(result_multi)
+
+# Dimensions of latent processes (Z) and probabilities (p)
+dim(result_multi$z1_est)  # Latent process 1
+dim(result_multi$p1_est)  # Probability for category 1
+```
+
+#### 2. Binomial Approach
+
+The binomial method fits separate binomial GAMs for each category:
+
+```{r binomial}
+# Estimate using binomial approach
+result_binom <- estimate_categ_func_data("binomial", time_points, w_mat)
+
+# The output structure is similar
+names(result_binom)
+```
+
+#### 3. Probit Approach
+
+The probit method uses adaptive switching between probit and binomial links:
+
+```{r probit}
+# Estimate using probit approach
+result_probit <- estimate_categ_func_data("probit", time_points, w_mat)
+
+# Same output structure
+names(result_probit)
+```
+
+## Visualization
+
+Let's visualize the estimated probability curves:
+
+```{r visualization}
+# Extract probability estimates for the first individual
+p1_multi <- result_multi$p1_est[, 1]
+p2_multi <- result_multi$p2_est[, 1]
+p3_multi <- result_multi$p3_est[, 1]
+
+# Create a plot
+plot(time_points, p1_multi, type = "l", col = "red", lwd = 2, ylim = c(0, 1),
+     xlab = "Time", ylab = "Probability",
+     main = "Estimated Category Probabilities (Individual 1)")
+lines(time_points, p2_multi, col = "blue", lwd = 2)
+lines(time_points, p3_multi, col = "green", lwd = 2)
+legend("topright", legend = c("Category 1", "Category 2", "Category 3"),
+       col = c("red", "blue", "green"), lwd = 2)
+
+# Add the observed categories as points
+observed_cats <- w_mat[, 1]
+points(time_points[observed_cats == 1], rep(0.05, sum(observed_cats == 1)),
+       col = "red", pch = 16)
+points(time_points[observed_cats == 2], rep(0.05, sum(observed_cats == 2)),
+       col = "blue", pch = 16)
+points(time_points[observed_cats == 3], rep(0.05, sum(observed_cats == 3)),
+       col = "green", pch = 16)
+```
+
+## Working with Real Data
+
+### Data Preprocessing
+
+If your categorical data uses non-numeric labels, the package handles this automatically:
+
+```{r preprocessing}
+# Example with character labels
+w_char <- matrix(sample(c("Low", "Medium", "High"), 30 * 5, replace = TRUE),
+                 nrow = 30, ncol = 5)
+
+time_points_short <- seq(0, 1, length.out = 30)
+
+# The function automatically handles character labels
+result_char <- estimate_categ_func_data("multinomial", time_points_short, w_char)
+
+# Check how many categories were detected
+length(grep("p[0-9]+_est", names(result_char)))
+```
+
+### One-hot Encoding
+
+You can also work directly with one-hot encoded data:
+
+```{r onehot}
+# Convert categorical data to one-hot encoding
+x_array <- get_x_from_w(w_mat)
+dim(x_array)  # individuals × time × categories
+
+# Use the one-hot data directly with probit method
+result_direct <- estimate_categ_func_data_probit(time_points, x_array)
+names(result_direct)
+```
+
+## Advanced Features
+
+### Parallel Processing
+
+For large datasets, use the parallel versions:
+
+```{r parallel, eval=FALSE}
+# Setup parallel backend (not run in vignette)
+library(doParallel)
+cl <- makeCluster(2)
+registerDoParallel(cl)
+
+# Use parallel estimation
+result_parallel <- estimate_categ_func_data_probit_parallel(time_points, x_array)
+
+# Don't forget to cleanup
+stopCluster(cl)
+```
+
+### Custom Parameters
+
+You can customize the estimation process:
+
+```{r custom}
+# Use more basis functions for smoother curves
+result_smooth <- estimate_categ_func_data("multinomial", time_points, w_mat,
+                                          n_basis = 35)
+
+# Use different GAM method
+result_reml <- estimate_categ_func_data("multinomial", time_points, w_mat,
+                                        method = "REML")
+```
+
+## Simulation Studies
+
+The package includes tools for generating synthetic data:
+
+```{r simulation}
+# Create smooth probability curves
+n_time_sim <- 40
+n_individuals_sim <- 8
+time_sim <- seq(0, 1, length.out = n_time_sim)
+
+# Generate probability curves with temporal patterns
+p1 <- outer(sin(2 * pi * time_sim) * 0.2 + 0.4, rep(1, n_individuals_sim))
+p2 <- outer(cos(2 * pi * time_sim) * 0.15 + 0.3, rep(1, n_individuals_sim))
+p3 <- 1 - p1 - p2
+
+# Ensure valid probabilities
+p1 <- pmax(0.1, pmin(0.8, p1))
+p2 <- pmax(0.1, pmin(0.8, p2))
+p3 <- pmax(0.1, pmin(0.8, p3))
+total <- p1 + p2 + p3
+p1 <- p1 / total
+p2 <- p2 / total
+p3 <- p3 / total
+
+prob_curves <- list(p1_est = p1, p2_est = p2, p3_est = p3)
+
+# Generate synthetic categorical data
+synthetic_data <- generate_categ_func_data(prob_curves)
+
+# Analyze the synthetic data
+result_synthetic <- estimate_categ_func_data("multinomial", time_sim,
+                                             synthetic_data$w_mat)
+
+# Compare true vs estimated probabilities for individual 1
+plot(time_sim, p1[, 1], type = "l", col = "red", lwd = 3, ylim = c(0, 1),
+     xlab = "Time", ylab = "Probability",
+     main = "True vs Estimated Probabilities")
+lines(time_sim, result_synthetic$p1_est[, 1], col = "red", lwd = 2, lty = 2)
+lines(time_sim, p2[, 1], col = "blue", lwd = 3)
+lines(time_sim, result_synthetic$p2_est[, 1], col = "blue", lwd = 2, lty = 2)
+lines(time_sim, p3[, 1], col = "green", lwd = 3)
+lines(time_sim, result_synthetic$p3_est[, 1], col = "green", lwd = 2, lty = 2)
+
+legend("topright",
+       legend = c("True P1", "Est P1", "True P2", "Est P2", "True P3", "Est P3"),
+       col = rep(c("red", "blue", "green"), each = 2),
+       lwd = 2, lty = rep(c(1, 2), 3))
+```
+
+## Conclusion
+
+The `catfda` package provides flexible and efficient tools for categorical functional data analysis. The three estimation approaches (multinomial, binomial, probit) offer different trade-offs:
+
+- **Multinomial**: Most statistically coherent, efficient for many categories
+- **Binomial**: Flexible, allows different smoothing for each category
+- **Probit**: Adaptive approach, good for rare events
+
+Choose the method that best fits your data characteristics and research questions.
+
+## References
+
+For more details on the theoretical background and applications, see the package documentation and associated research papers.
