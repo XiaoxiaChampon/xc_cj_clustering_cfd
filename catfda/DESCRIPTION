@@ -2,10 +2,7 @@ Package: catfda
 Type: Package
 Title: Categorical Functional Data Analysis
 Version: 0.1.0
-Authors@R: c(
-    person("Your", "Name", email = "your.email@example.com", role = c("aut", "cre")),
-    person("Co-Author", "Name", email = "coauthor@example.com", role = "aut")
-)
+Authors@R: person("Your", "Name", email = "your.email@example.com", role = c("aut", "cre"))
 Description: A comprehensive package for analyzing categorical functional data.
     Provides methods for estimating latent Gaussian processes and probability curves
     from categorical time series data using various link functions including probit,
@@ -15,7 +12,7 @@ License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.2.3
+RoxygenNote: 7.3.2
 Depends:
     R (>= 4.0.0)
 Imports:

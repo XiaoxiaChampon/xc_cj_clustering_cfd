@@ -11,7 +11,7 @@
 #' @param method GAM optimization method (default = "ML")
 #'
 #' @return A list with:
-#'   - Z1_est, ..., Z{K-1}_est (latent curves)
+#'   - Z1_est, ..., Z(K-1)_est (latent curves)
 #'   - p1_est, ..., pK_est (category probability curves)
 #'
 #' @details
@@ -70,14 +70,15 @@ estimate_categ_func_data_binomial_parallel <- function(time_points,
   zp <- foreach::foreach(
     indv = seq_len(n_individuals),
     .combine = cbind,
-    .packages = c("mgcv")
+    .packages = c("mgcv"),
+    .export = c("run_gam")
   ) %dorng% {
     p_list <- list()
     linpred_list <- list()
 
     for (k in seq_len(n_categories)) {
       x_k <- x_array[indv, , k]
-      fit <- catfda::run_gam(time_points, x_k, link = "binomial", n_basis = n_basis, method = method)
+      fit <- run_gam(time_points, x_k, link = "binomial", n_basis = n_basis, method = method)
       p_list[[k]] <- fit$prob
       linpred_list[[k]] <- fit$linpred
     }

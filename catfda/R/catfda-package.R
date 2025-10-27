@@ -13,17 +13,17 @@
 #'   \item Automatic category detection and handling
 #' }
 #'
-#' @docType package
-#' @name catfda-package
-#' @aliases catfda
-#' @author Your Name \email{your.email@@example.com}
-#' @keywords package
+#' @keywords internal
+"_PACKAGE"
 #'
 #' @importFrom mgcv gam multinom
 #' @importFrom rlang set_names
-#' @importFrom foreach foreach %dorng%
+#' @importFrom foreach foreach
+#' @importFrom doRNG %dorng%
 #' @importFrom stats binomial predict rmultinom
 #' @importFrom parallel detectCores
+# Declare global variables used in foreach loops to avoid R CMD check notes
+utils::globalVariables(c("indv", "x_k"))
 NULL
 
 #' Estimate categorical functional data using the specified link function
@@ -58,12 +58,12 @@ NULL
 #' n_individuals <- 10
 #' time_points <- seq(0, 1, length.out = n_time)
 #'
-#' # Create sample categorical data (3 categories)
-#' w_mat <- matrix(sample(1:3, n_time * n_individuals, replace = TRUE),
+#' # Create sample categorical data (3 categories, 0-based for multinomial)
+#' w_mat <- matrix(sample(0:2, n_time * n_individuals, replace = TRUE),
 #'                 nrow = n_time, ncol = n_individuals)
 #'
-#' # Estimate using multinomial approach
-#' result <- estimate_categ_func_data("multinomial", time_points, w_mat)
+#' # Estimate using multinomial approach with fewer basis functions
+#' result <- estimate_categ_func_data("multinomial", time_points, w_mat, n_basis = 10)
 #'
 #' # Check output structure
 #' names(result)

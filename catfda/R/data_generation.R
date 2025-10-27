@@ -25,19 +25,10 @@
 #' n_individuals <- 10
 #' time_points <- seq(0, 1, length.out = n_time)
 #'
-#' # Generate smooth probability curves
-#' p1 <- outer(sin(2 * pi * time_points), rep(1, n_individuals)) * 0.3 + 0.4
-#' p2 <- outer(cos(2 * pi * time_points), rep(1, n_individuals)) * 0.2 + 0.3
-#' p3 <- 1 - p1 - p2
-#'
-#' # Ensure probabilities are valid
-#' p1 <- pmax(0, pmin(1, p1))
-#' p2 <- pmax(0, pmin(1, p2))
-#' p3 <- pmax(0, pmin(1, p3))
-#' total <- p1 + p2 + p3
-#' p1 <- p1 / total
-#' p2 <- p2 / total
-#' p3 <- p3 / total
+#' # Generate simple probability matrices that sum to 1
+#' p1 <- matrix(0.4, nrow = n_time, ncol = n_individuals)
+#' p2 <- matrix(0.3, nrow = n_time, ncol = n_individuals)
+#' p3 <- matrix(0.3, nrow = n_time, ncol = n_individuals)
 #'
 #' prob_curves <- list(p1_est = p1, p2_est = p2, p3_est = p3)
 #'
@@ -55,14 +46,24 @@ generate_categ_func_data <- function(prob_curves) {
   k_categories <- length(prob_curves)
   category_names <- names(prob_curves)
 
-  # Validate structure
+  # Validate structure and extract dimensions
+  if (!is.matrix(prob_curves[[1]])) {
+    stop("Each element in prob_curves must be a matrix")
+  }
   ref_dim <- dim(prob_curves[[1]])
-  stopifnot(all(sapply(prob_curves, function(mat) all(dim(mat) == ref_dim))))
 
-  n_timepoints <- ref_dim[1]
-  n_individuals <- ref_dim[2]
+  # Check all elements are matrices with same dimensions
+  for (i in seq_along(prob_curves)) {
+    if (!is.matrix(prob_curves[[i]])) {
+      stop("Each element in prob_curves must be a matrix")
+    }
+    if (!all(dim(prob_curves[[i]]) == ref_dim)) {
+      stop("All matrices in prob_curves must have the same dimensions")
+    }
+  }
 
-  # Prepare storage
+  n_timepoints <- as.integer(ref_dim[1])
+  n_individuals <- as.integer(ref_dim[2])  # Prepare storage
   w_mat <- matrix(0, nrow = n_timepoints, ncol = n_individuals)
   x_array <- array(0, dim = c(n_individuals, n_timepoints, k_categories))
 

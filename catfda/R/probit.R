@@ -76,7 +76,7 @@ estimate_categ_func_data_probit <- function(time_points,
     # Fit models for each category
     for (k in seq_len(n_categories)) {
       response <- x_array[indv, , k]
-            fit <- catfda::run_gam(time_points, x_k, link = "probit", n_basis = n_basis, method = method)
+      fit <- run_gam(time_points, response, link_func, n_basis, method)
       p_list[[k]] <- fit$prob
       linpred_list[[k]] <- fit$linpred
     }
@@ -184,7 +184,8 @@ estimate_categ_func_data_probit_parallel <- function(time_points,
   zp <- foreach::foreach(
     indv = seq_len(n_individuals),
     .combine = cbind,
-    .packages = c("mgcv")
+    .packages = c("mgcv"),
+    .export = c("run_gam")
   ) %dorng% {
     # Estimate p_k and linpred for each category
     p_list <- list()
@@ -196,7 +197,7 @@ estimate_categ_func_data_probit_parallel <- function(time_points,
       use_probit <- (n_timepoints <= 301) && (mean(x_k) < threshold_probability)
       link <- if (use_probit) "probit" else "binomial"
 
-      fit <- run_gam(time_points, x_k, link, n_basis, method)
+            fit <- run_gam(time_points, x_k, link, n_basis, method)
       p_list[[k]] <- fit$prob
       linpred_list[[k]] <- fit$linpred
     }

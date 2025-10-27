@@ -54,7 +54,10 @@ get_x_from_w <- function(w_mat) {
   x_array <- array(0, dim = c(n_individuals, n_timepoints, n_categories))
 
   for (i in seq_len(n_individuals)) {
-    x_array[i, cbind(seq_len(n_timepoints), w_indexed[, i])] <- 1
+    for (t in seq_len(n_timepoints)) {
+      cat_idx <- w_indexed[t, i]
+      x_array[i, t, cat_idx] <- 1
+    }
   }
 
   return(x_array)

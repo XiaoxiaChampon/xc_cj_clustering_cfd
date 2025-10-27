@@ -48,23 +48,30 @@ estimate_categ_func_data_multinomial <- function(time_points,
   unique_labels <- sort(unique(as.vector(w_mat)))
   k_classes <- length(unique_labels)
 
-  # Remap labels to 1...K if needed
-  w_mapped <- apply(w_mat, 2, function(col) match(col, unique_labels))
+  # Remap labels to 0...K-1 for mgcv::multinom (which expects 0-based categories)
+  w_mapped <- apply(w_mat, 2, function(col) match(col, unique_labels) - 1)
 
   # Preallocate Z and p
   z_list <- vector("list", k_classes - 1)
   p_array <- array(0, dim = c(n_individuals, n_timepoints, k_classes))
 
   for (i in seq_len(n_individuals)) {
+    # Create data frame for GAM fitting
+    gam_data <- data.frame(
+      response = w_mapped[, i],
+      time = time_points
+    )
+
     # Construct list of formulas for GAM (first is response, rest are smoothers)
     gam_formulas <- c(
-      list(w_mapped[, i] ~ s(time_points, bs = "cr", m = 2, k = n_basis)),
-      replicate(k_classes - 2, ~ s(time_points, bs = "cr", m = 2, k = n_basis), simplify = FALSE)
+      list(response ~ s(time, bs = "cr", m = 2, k = n_basis)),
+      replicate(k_classes - 2, ~ s(time, bs = "cr", m = 2, k = n_basis), simplify = FALSE)
     )
 
     fit <- mgcv::gam(
       formula = gam_formulas,
       family = mgcv::multinom(K = k_classes - 1),
+      data = gam_data,
       method = method,
       control = list(maxit = 500, mgcv.tol = 1e-4, epsilon = 1e-04),
       optimizer = c("outer", "bfgs")
@@ -88,9 +95,9 @@ estimate_categ_func_data_multinomial <- function(time_points,
     p_array[i, , ] <- prob_mat
   }
 
-  # Build output: transpose and name
+  # Build output: z_list is already (n_timepoints, n_individuals), so no transpose needed
   z_estimates <- rlang::set_names(
-    lapply(seq_along(z_list), function(k) t(z_list[[k]])),
+    z_list,
     paste0("z", seq_along(z_list), "_est")
   )
   p_estimates <- rlang::set_names(
