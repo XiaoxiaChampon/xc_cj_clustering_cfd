@@ -16,14 +16,14 @@ estimate_categ_func_data <- function(choice,
   method_map <- list(
     probit = function() {
       x <- get_x_from_w(w_mat)
-      estimate_categ_func_data_probit(time_points, x, n_basis, method, 1 / 150)
+      estimate_categ_func_data_probit_parallel(time_points, x, n_basis, method, 1 / 150)
     },
     binomial = function() {
       x <- get_x_from_w(w_mat)
-      estimate_categ_func_data_binorm(time_points, x, n_basis, method)
+      estimate_categ_func_data_binomial_parallel(time_points, x, n_basis, method)
     },
     multinomial = function() {
-      estimate_categ_func_data_multinomial(time_points, w_mat, n_basis, method)
+      estimate_categ_func_data_multinomial_parallel(time_points, w_mat, n_basis, method)
     }
   )
 
@@ -71,8 +71,12 @@ estimate_categ_func_data_multinomial <- function(time_points,
   unique_labels <- sort(unique(as.vector(w_mat)))
   k_classes <- length(unique_labels)
 
+  # >>>>>> Which is correct?
   # Remap labels to 1...K if needed
-  w_mapped <- apply(w_mat, 2, function(col) match(col, unique_labels))
+  # w_mapped <- apply(w_mat, 2, function(col) match(col, unique_labels))
+
+  # Remap labels to 0...(K-1) for mgcv::multinom (expects 0-based indexing)
+  w_mapped <- apply(w_mat, 2, function(col) match(col, unique_labels) - 1)
 
   # Preallocate Z and p
   z_list <- vector("list", k_classes - 1)
@@ -111,11 +115,101 @@ estimate_categ_func_data_multinomial <- function(time_points,
     p_array[i, , ] <- prob_mat
   }
 
-  # Build output: transpose and name
+  # Build output: z_list already in time × individuals, p_array needs transpose
   z_estimates <- rlang::set_names(
-    lapply(seq_along(z_list), function(k) t(z_list[[k]])),
-    paste0("z", seq_along(z_list), "_est")
+    z_list,
+    paste0("Z", seq_along(z_list), "_est")
   )
+  p_estimates <- rlang::set_names(
+    lapply(seq_len(k_classes), function(k) t(p_array[, , k])),
+    paste0("p", seq_len(k_classes), "_est")
+  )
+
+  return(c(z_estimates, p_estimates))
+}
+
+#' Parallel estimation of Z and p using multinomial link GAM
+#'
+#' @param time_points A numeric vector of time points
+#' @param w_mat A matrix of categorical values (time × individuals)
+#' @param n_basis Number of basis functions for smoothing (default = 25)
+#' @param method GAM fitting method (default = "ML")
+#'
+#' @return A named list with latent Z estimates and probability estimates
+#' @export
+estimate_categ_func_data_multinomial_parallel <- function(time_points,
+                                                          w_mat,
+                                                          n_basis = 25,
+                                                          method = "ML") {
+  stopifnot(is.numeric(time_points), is.matrix(w_mat))
+
+  n_individuals <- ncol(w_mat)
+  n_timepoints <- nrow(w_mat)
+
+  # Determine number of categories (K)
+  unique_labels <- sort(unique(as.vector(w_mat)))
+  k_classes <- length(unique_labels)
+
+  # Remap labels to 0...(K-1) for mgcv::multinom (expects 0-based indexing)
+  w_mapped <- apply(w_mat, 2, function(col) match(col, unique_labels) - 1)
+
+  total_z_rows <- n_timepoints * (k_classes - 1)
+
+  # Parallel processing across individuals
+  zp <- foreach(
+    i = seq_len(n_individuals),
+    .combine = cbind,
+    .packages = c("mgcv")
+  ) %dorng% {
+    # Construct list of formulas for GAM
+    gam_formulas <- c(
+      list(w_mapped[, i] ~ s(time_points, bs = "cr", m = 2, k = n_basis)),
+      replicate(k_classes - 2, ~ s(time_points, bs = "cr", m = 2, k = n_basis), simplify = FALSE)
+    )
+
+    fit <- mgcv::gam(
+      formula = gam_formulas,
+      family = mgcv::multinom(K = k_classes - 1),
+      method = method,
+      control = list(maxit = 500, mgcv.tol = 1e-4, epsilon = 1e-04),
+      optimizer = c("outer", "bfgs")
+    )
+
+    z_mat <- fit$linear.predictors # t × (K - 1)
+
+    # Compute softmax probabilities
+    exp_z <- exp(z_mat)
+    denom <- 1 + rowSums(exp_z)
+    prob_mat <- matrix(0, nrow = n_timepoints, ncol = k_classes)
+
+    for (k in seq_len(k_classes - 1)) {
+      prob_mat[, k] <- exp_z[, k] / denom
+    }
+    prob_mat[, k_classes] <- 1 / denom
+
+    # Return z values and probabilities as a single vector
+    return(c(
+      as.vector(z_mat), # (T * (K - 1))
+      as.vector(prob_mat) # (T * K)
+    ))
+  }
+
+  # Split output back into Z and p
+  z_mat <- zp[1:total_z_rows, , drop = FALSE]
+  p_mat <- zp[(total_z_rows + 1):nrow(zp), , drop = FALSE]
+
+  # Return list of Z1_est, ..., Z{K-1}_est - already in time × individuals format
+  z_estimates <- rlang::set_names(
+    lapply(seq_len(k_classes - 1), function(k) {
+      z_start <- (k - 1) * n_timepoints + 1
+      z_end <- k * n_timepoints
+      z_mat[z_start:z_end, ]
+    }),
+    paste0("Z", seq_len(k_classes - 1), "_est")
+  )
+
+  # Return list of p1_est, ..., pK_est
+  p_array <- array(t(p_mat), dim = c(n_individuals, n_timepoints, k_classes))
   p_estimates <- rlang::set_names(
     lapply(seq_len(k_classes), function(k) t(p_array[, , k])),
     paste0("p", seq_len(k_classes), "_est")
@@ -259,10 +353,10 @@ estimate_categ_func_data_probit <- function(time_points,
     prob_array[indv, , ] <- p_normalized
   }
 
-  # Build output
+  # Build output: z_curves already time × individuals, prob_array needs transpose
   z_out <- rlang::set_names(
-    lapply(z_curves, t),
-    paste0("z", seq_along(z_curves), "_est")
+    z_curves,
+    paste0("Z", seq_along(z_curves), "_est")
   )
   p_out <- rlang::set_names(
     lapply(seq_len(n_categories), function(k) t(prob_array[, , k])),
@@ -272,7 +366,7 @@ estimate_categ_func_data_probit <- function(time_points,
   return(c(z_out, p_out))
 }
 
-#' Parallel estimation of Z and p using (probit or binomial) link GAMs
+#' Parallel estimation of Z and p using binomial link GAMs
 #'
 #' @param time_points A numeric vector of time points (length T)
 #' @param x_array A 3D array: individual × time × category (dimensions N × T × K)
@@ -430,17 +524,18 @@ estimate_categ_func_data_binomial_parallel <- function(time_points,
   z_mat <- zp[1:total_z_rows, , drop = FALSE]
   p_mat <- zp[(total_z_rows + 1):nrow(zp), , drop = FALSE]
 
-  # Return list of z1_est, ..., z{K-1}_est
+  # Return list of Z1_est, ..., Z{K-1}_est - already in time × individuals format
   z_out <- rlang::set_names(
     lapply(seq_len(total_z_curves), function(k) {
       z_start <- (k - 1) * n_timepoints + 1
       z_end <- k * n_timepoints
-      t(z_mat[z_start:z_end, ])
+      z_mat[z_start:z_end, ]
     }),
-    paste0("z", seq_len(total_z_curves), "_est")
+    paste0("Z", seq_len(total_z_curves), "_est")
   )
 
   # Return list of p1_est, ..., pK_est
+  # p_mat is (time*categories) × individuals, need to reshape to time × individuals per category
   p_array <- array(t(p_mat), dim = c(n_individuals, n_timepoints, n_categories))
   p_out <- rlang::set_names(
     lapply(seq_len(n_categories), function(k) t(p_array[, , k])),
