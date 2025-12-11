@@ -234,14 +234,16 @@ get_x_from_w <- function(w_mat) {
   categories <- sort(unique(as.vector(w_mat)))
   n_categories <- length(categories)
 
-  # Map category labels to 1:K indices
-  w_indexed <- apply(w_mat, 2, function(col) match(col, categories))
-
   # Initialize result array: [individual × time × category]
   x_array <- array(0, dim = c(n_individuals, n_timepoints, n_categories))
 
+  # Fill in the one-hot encoding for each individual
   for (i in seq_len(n_individuals)) {
-    x_array[i, cbind(seq_len(n_timepoints), w_indexed[, i])] <- 1
+    for (t in seq_len(n_timepoints)) {
+      # Find which category this observation belongs to
+      category_idx <- match(w_mat[t, i], categories)
+      x_array[i, t, category_idx] <- 1
+    }
   }
 
   return(x_array)
