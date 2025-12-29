@@ -1,5 +1,10 @@
 #' Estimate categorical functional data using the specified link function
 #'
+#' @description
+#' Main dispatcher function for categorical functional data estimation.
+#' Chooses between probit, binomial, or multinomial approaches based on the
+#' specified method.
+#'
 #' @param choice A string: one of "probit", "binomial", or "multinomial"
 #' @param time_points A numeric vector of time points (0 to 1)
 #' @param w_mat A matrix of categorical observations (time × individuals)
@@ -7,6 +12,31 @@
 #' @param method Estimation method for GAM (default = "ML")
 #'
 #' @return A list of latent variables (Z) and predicted probabilities (p)
+#'
+#' @details
+#' This function serves as the main entry point for categorical functional data
+#' analysis. It automatically dispatches to the appropriate estimation method
+#' based on the specified choice:
+#' \itemize{
+#'   \item "probit": Uses adaptive probit/binomial switching for rare events
+#'   \item "binomial": Uses separate binomial GAMs for each category
+#'   \item "multinomial": Uses multinomial GAM for all categories simultaneously
+#' }
+#'
+#' @examples
+#' # Generate sample data
+#' set.seed(123)
+#' n_time <- 50
+#' n_individuals <- 10
+#' time_points <- seq(0, 1, length.out = n_time)
+#'
+#' # Create sample categorical data
+#' w_mat <- matrix(sample(0:2, n_time * n_individuals, replace = TRUE),
+#'                 nrow = n_time, ncol = n_individuals)
+#'
+#' # Estimate using multinomial approach
+#' result <- estimate_categ_func_data("multinomial", time_points, w_mat, n_basis = 10)
+#'
 #' @export
 estimate_categ_func_data <- function(choice,
                                      time_points,
@@ -43,7 +73,10 @@ estimate_categ_func_data <- function(choice,
   }
 
   if (!is.matrix(w_mat)) {
-    stop(sprintf("w_mat Must be a matrix. Given value : '%s'", w_mat))
+    stop(sprintf(
+      "w_mat must be a matrix. Given value type : '%s'",
+      typeof(w_mat)
+    ))
   }
 
   return(method_map[[choice]]())
@@ -51,12 +84,40 @@ estimate_categ_func_data <- function(choice,
 
 #' Estimate Z and p curves for categorical functional data (multinomial case)
 #'
+#' @description
+#' Estimates latent Gaussian processes and probability curves using multinomial
+#' GAM models. This approach models all categories simultaneously using a single
+#' multinomial distribution.
+#'
 #' @param time_points A numeric vector of time points
 #' @param w_mat A matrix of categorical values (time × individuals)
 #' @param n_basis Number of basis functions for smoothing (default = 25)
 #' @param method GAM fitting method (default = "ML")
 #'
 #' @return A named list with latent Z estimates and probability estimates
+#'
+#' @details
+#' The multinomial approach fits a single GAM with multinomial family to all
+#' categories simultaneously. This is generally more efficient and statistically
+#' coherent than fitting separate binomial models, especially when the number
+#' of categories is large.
+#'
+#' The function automatically detects the number of categories and handles
+#' arbitrary category labels by remapping them to sequential integers.
+#'
+#' @examples
+#' # Generate sample data
+#' set.seed(123)
+#' n_time <- 30
+#' n_individuals <- 5
+#' time_points <- seq(0, 1, length.out = n_time)
+#' w_mat <- matrix(sample(1:3, n_time * n_individuals, replace = TRUE),
+#'                 nrow = n_time, ncol = n_individuals)
+#'
+#' # Estimate using multinomial approach
+#' result <- estimate_categ_func_data_multinomial(time_points, w_mat)
+#' names(result)
+#'
 #' @export
 estimate_categ_func_data_multinomial <- function(time_points,
                                                  w_mat,
@@ -118,7 +179,7 @@ estimate_categ_func_data_multinomial <- function(time_points,
   # Build output: z_list already in time × individuals, p_array needs transpose
   z_estimates <- rlang::set_names(
     z_list,
-    paste0("Z", seq_along(z_list), "_est")
+    paste0("z", seq_along(z_list), "_est")
   )
   p_estimates <- rlang::set_names(
     lapply(seq_len(k_classes), function(k) t(p_array[, , k])),
@@ -130,12 +191,47 @@ estimate_categ_func_data_multinomial <- function(time_points,
 
 #' Parallel estimation of Z and p using multinomial link GAM
 #'
+#' @description
+#' Parallel version of multinomial estimation for improved performance
+#' with large datasets.
+#'
 #' @param time_points A numeric vector of time points
 #' @param w_mat A matrix of categorical values (time × individuals)
 #' @param n_basis Number of basis functions for smoothing (default = 25)
 #' @param method GAM fitting method (default = "ML")
 #'
 #' @return A named list with latent Z estimates and probability estimates
+#'
+#' @details
+#' This is the parallel implementation of the multinomial approach.
+#' It uses the \\code{foreach} package with \\code{\\%dorng\\%} for reproducible
+#' parallel computation.
+#'
+#' Note: Requires a parallel backend to be registered (e.g., using doParallel)
+#' for actual parallel execution.
+#'
+#' @examples
+#' \\dontrun{
+#' # Setup parallel backend
+#' library(doParallel)
+#' cl <- makeCluster(2)
+#' registerDoParallel(cl)
+#'
+#' # Generate sample data
+#' set.seed(123)
+#' n_time <- 50
+#' n_individuals <- 20
+#' time_points <- seq(0, 1, length.out = n_time)
+#' w_mat <- matrix(sample(1:3, n_time * n_individuals, replace = TRUE),
+#'                 nrow = n_time, ncol = n_individuals)
+#'
+#' # Parallel estimation
+#' result <- estimate_categ_func_data_multinomial_parallel(time_points, w_mat)
+#'
+#' # Cleanup
+#' stopCluster(cl)
+#' }
+#'
 #' @export
 estimate_categ_func_data_multinomial_parallel <- function(time_points,
                                                           w_mat,
@@ -205,7 +301,7 @@ estimate_categ_func_data_multinomial_parallel <- function(time_points,
       z_end <- k * n_timepoints
       z_mat[z_start:z_end, ]
     }),
-    paste0("Z", seq_len(k_classes - 1), "_est")
+    paste0("z", seq_len(k_classes - 1), "_est")
   )
 
   # Return list of p1_est, ..., pK_est
@@ -220,9 +316,39 @@ estimate_categ_func_data_multinomial_parallel <- function(time_points,
 
 #' Create one-hot encoded functional data array from categorical observations
 #'
+#' @description
+#' Converts a matrix of categorical observations into a 3D array of one-hot
+#' encoded binary indicators. This is a utility function commonly needed
+#' for preprocessing categorical functional data.
+#'
 #' @param w_mat A matrix of categorical observations (time × individuals)
 #'
 #' @return A 3D array (individual × time × category)
+#'
+#' @details
+#' The function automatically detects the unique categories in the input matrix
+#' and creates binary indicator variables for each category. Categories are
+#' sorted and mapped to sequential indices.
+#'
+#' The output array has dimensions:
+#' \itemize{
+#'   \item Dimension 1: Individuals
+#'   \item Dimension 2: Time points
+#'   \item Dimension 3: Categories (one-hot encoded)
+#' }
+#'
+#' @examples
+#' # Create sample categorical data
+#' set.seed(123)
+#' n_time <- 20
+#' n_individuals <- 5
+#' w_mat <- matrix(sample(c("A", "B", "C"), n_time * n_individuals, replace = TRUE),
+#'                 nrow = n_time, ncol = n_individuals)
+#'
+#' # Convert to one-hot encoding
+#' x_array <- get_x_from_w(w_mat)
+#' dim(x_array)  # Should be [5, 20, 3]
+#'
 #' @export
 get_x_from_w <- function(w_mat) {
   stopifnot(is.matrix(w_mat))
@@ -251,6 +377,10 @@ get_x_from_w <- function(w_mat) {
 
 #' Fit a GAM to a binary time series with a chosen link function
 #'
+#' @description
+#' Internal utility function for fitting Generalized Additive Models (GAMs)
+#' to binary time series data using different link functions.
+#'
 #' @param time_points A numeric vector of time values (length T)
 #' @param response A binary vector of observations (length T)
 #' @param link A string: either "binomial" (logit) or "probit"
@@ -258,6 +388,25 @@ get_x_from_w <- function(w_mat) {
 #' @param method GAM optimization method (default = "ML")
 #'
 #' @return A list with predicted probabilities and latent Z (linear predictors)
+#'
+#' @details
+#' This is an internal utility function used by the main estimation functions.
+#' It handles the GAM fitting with appropriate error handling and basis
+#' function adjustment for sparse responses.
+#'
+#' The function automatically adjusts the number of basis functions to avoid
+#' overfitting when dealing with very sparse binary responses.
+#'
+#' @examples
+#' # Fit a simple binomial GAM
+#' set.seed(123)
+#' n_time <- 50
+#' time_points <- seq(0, 1, length.out = n_time)
+#' response <- rbinom(n_time, 1, plogis(sin(2 * pi * time_points)))
+#'
+#' # Fit GAM
+#' result <- run_gam(time_points, response, "binomial")
+#'
 #' @export
 run_gam <- function(time_points,
                     response,
@@ -303,6 +452,40 @@ run_gam <- function(time_points,
 #' @param threshold_probability Probability threshold for switching to probit special case (default = 0.004)
 #'
 #' @return A list containing estimated Z curves and category probabilities for each individual
+#'
+#' @details
+#' This function implements an adaptive approach that switches between probit
+#' and binomial link functions based on the sparsity of categorical events:
+#' \itemize{
+#'   \item Uses probit link for rare events (proportion < threshold_probability)
+#'   \item Uses binomial link for common events
+#'   \item Only applies special probit handling for short time series (≤ 301 points)
+#' }
+#'
+#' The adaptive approach helps with numerical stability when dealing with
+#' very rare categorical events.
+#'
+#' @examples
+#' # Generate sample one-hot encoded data
+#' set.seed(123)
+#' n_time <- 50
+#' n_individuals <- 8
+#' n_categories <- 3
+#'
+#' time_points <- seq(0, 1, length.out = n_time)
+#' x_array <- array(0, dim = c(n_individuals, n_time, n_categories))
+#'
+#' # Fill with random one-hot vectors
+#' for(i in 1:n_individuals) {
+#'   for(t in 1:n_time) {
+#'     cat <- sample(1:n_categories, 1)
+#'     x_array[i, t, cat] <- 1
+#'   }
+#' }
+#'
+#' # Estimate using probit approach
+#' result <- estimate_categ_func_data_probit(time_points, x_array)
+#'
 #' @export
 estimate_categ_func_data_probit <- function(time_points,
                                             x_array,
@@ -355,10 +538,10 @@ estimate_categ_func_data_probit <- function(time_points,
     prob_array[indv, , ] <- p_normalized
   }
 
-  # Build output: z_curves already time × individuals, prob_array needs transpose
+  # Build output
   z_out <- rlang::set_names(
-    z_curves,
-    paste0("Z", seq_along(z_curves), "_est")
+    lapply(z_curves, t),
+    paste0("z", seq_along(z_curves), "_est")
   )
   p_out <- rlang::set_names(
     lapply(seq_len(n_categories), function(k) t(prob_array[, , k])),
@@ -368,7 +551,11 @@ estimate_categ_func_data_probit <- function(time_points,
   return(c(z_out, p_out))
 }
 
-#' Parallel estimation of Z and p using binomial link GAMs
+#' Parallel estimation of Z and p using (probit or binomial) link GAMs
+#'
+#' @description
+#' Parallel version of probit/binomial estimation for improved performance
+#' with large datasets.
 #'
 #' @param time_points A numeric vector of time points (length T)
 #' @param x_array A 3D array: individual × time × category (dimensions N × T × K)
@@ -377,6 +564,46 @@ estimate_categ_func_data_probit <- function(time_points,
 #' @param threshold_probability If response is sparse, switch to probit (default = 0.004)
 #'
 #' @return A list of estimated latent curves (Z1, Z2, ..., ZK-1) and normalized probabilities (p1, ..., pK)
+#'
+#' @details
+#' This is the parallel implementation of the probit/binomial approach.
+#' It uses the \code{foreach} package with \code{\%dorng\%} for reproducible
+#' parallel computation.
+#'
+#' Note: Requires a parallel backend to be registered (e.g., using doParallel)
+#' for actual parallel execution.
+#'
+#' @examples
+#' \dontrun{
+#' # Setup parallel backend
+#' library(doParallel)
+#' cl <- makeCluster(2)
+#' registerDoParallel(cl)
+#'
+#' # Generate sample data
+#' set.seed(123)
+#' n_time <- 100
+#' n_individuals <- 20
+#' n_categories <- 4
+#'
+#' time_points <- seq(0, 1, length.out = n_time)
+#' x_array <- array(0, dim = c(n_individuals, n_time, n_categories))
+#'
+#' # Fill with random one-hot vectors
+#' for(i in 1:n_individuals) {
+#'   for(t in 1:n_time) {
+#'     cat <- sample(1:n_categories, 1)
+#'     x_array[i, t, cat] <- 1
+#'   }
+#' }
+#'
+#' # Parallel estimation
+#' result <- estimate_categ_func_data_probit_parallel(time_points, x_array)
+#'
+#' # Cleanup
+#' stopCluster(cl)
+#' }
+#'
 #' @export
 estimate_categ_func_data_probit_parallel <- function(time_points,
                                                      x_array,
@@ -393,7 +620,7 @@ estimate_categ_func_data_probit_parallel <- function(time_points,
   total_z_rows <- n_timepoints * total_z_curves
 
   # Parallel estimation
-  zp <- foreach(
+  zp <- foreach::foreach(
     indv = seq_len(n_individuals),
     .combine = cbind,
     .packages = c("mgcv"),
@@ -462,14 +689,59 @@ estimate_categ_func_data_probit_parallel <- function(time_points,
 
 #' Estimate Z and p curves using binomial link GAMs (parallel version)
 #'
+#' @description
+#' Estimates latent Gaussian processes using separate binomial GAM models
+#' for each category. This is the parallel implementation for improved
+#' performance with large datasets.
+#'
 #' @param time_points Numeric vector of time values (length T)
 #' @param x_array 3D array (individual × time × category) — binary one-hot encoding
 #' @param n_basis Number of basis functions (default = 25)
 #' @param method GAM optimization method (default = "ML")
 #'
 #' @return A list with:
-#'   - Z1_est, ..., Z{K-1}_est (latent curves)
+#'   - Z1_est, ..., Z(K-1)_est (latent curves)
 #'   - p1_est, ..., pK_est (category probability curves)
+#'
+#' @details
+#' The binomial approach fits separate binomial GAM models for each category
+#' and then transforms the results to obtain latent processes relative to
+#' a reference category (the last category).
+#'
+#' This parallel implementation uses the \code{foreach} package for efficient
+#' computation across individuals.
+#'
+#' @examples
+#' \dontrun{
+#' # Setup parallel backend
+#' library(doParallel)
+#' cl <- makeCluster(2)
+#' registerDoParallel(cl)
+#'
+#' # Generate sample data
+#' set.seed(123)
+#' n_time <- 75
+#' n_individuals <- 15
+#' n_categories <- 3
+#'
+#' time_points <- seq(0, 1, length.out = n_time)
+#' x_array <- array(0, dim = c(n_individuals, n_time, n_categories))
+#'
+#' # Fill with random one-hot vectors
+#' for(i in 1:n_individuals) {
+#'   for(t in 1:n_time) {
+#'     cat <- sample(1:n_categories, 1)
+#'     x_array[i, t, cat] <- 1
+#'   }
+#' }
+#'
+#' # Parallel binomial estimation
+#' result <- estimate_categ_func_data_binomial_parallel(time_points, x_array)
+#'
+#' # Cleanup
+#' stopCluster(cl)
+#' }
+#'
 #' @export
 estimate_categ_func_data_binomial_parallel <- function(time_points,
                                                        x_array,
@@ -484,7 +756,7 @@ estimate_categ_func_data_binomial_parallel <- function(time_points,
   total_z_curves <- n_categories - 1
   total_z_rows <- n_timepoints * total_z_curves
 
-  zp <- foreach(
+  zp <- foreach::foreach(
     indv = seq_len(n_individuals),
     .combine = cbind,
     .packages = c("mgcv"),
@@ -551,11 +823,41 @@ estimate_categ_func_data_binomial_parallel <- function(time_points,
 
 #' Generate synthetic categorical functional data (W) and one-hot encoded array (X)
 #'
+#' @description
+#' Generates synthetic categorical functional data from probability curves using
+#' multinomial sampling. This is useful for simulation studies and testing.
+#'
 #' @param prob_curves A named list of T × N matrices: p1_est, ..., pK_est
 #'
 #' @return A list with:
 #'   - w_mat: Categorical matrix (T × N)
 #'   - x_array: One-hot encoded array (N × T × K)
+#'
+#' @details
+#' The function takes probability curves for each category and generates
+#' categorical observations by sampling from multinomial distributions at
+#' each time point for each individual.
+#'
+#' The probability curves should be provided as a named list where each
+#' element is a matrix of dimension (time × individuals).
+#'
+#' @examples
+#' # Create sample probability curves
+#' set.seed(123)
+#' n_time <- 30
+#' n_individuals <- 10
+#' time_points <- seq(0, 1, length.out = n_time)
+#'
+#' # Generate simple probability matrices that sum to 1
+#' p1 <- matrix(0.4, nrow = n_time, ncol = n_individuals)
+#' p2 <- matrix(0.3, nrow = n_time, ncol = n_individuals)
+#' p3 <- matrix(0.3, nrow = n_time, ncol = n_individuals)
+#'
+#' prob_curves <- list(p1_est = p1, p2_est = p2, p3_est = p3)
+#'
+#' # Generate categorical data
+#' result <- generate_categ_func_data(prob_curves)
+#'
 #' @export
 generate_categ_func_data <- function(prob_curves) {
   stopifnot(is.list(prob_curves), length(prob_curves) >= 2)
