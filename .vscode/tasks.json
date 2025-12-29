@@ -1,0 +1,48 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "R: Check Code Style",
+      "type": "shell",
+      "command": "C:\\Program Files\\R\\R-4.4.1\\bin\\Rscript.exe",
+      "args": [
+        "-e",
+        "if (!require(lintr)) install.packages('lintr'); lintr::lint_dir('.')"
+      ],
+      "group": "test",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "R: Style Code",
+      "type": "shell",
+      "command": "C:\\Program Files\\R\\R-4.4.1\\bin\\Rscript.exe",
+      "args": [
+        "-e",
+        "if (!require(styler)) install.packages('styler'); styler::style_dir('.', style = styler::tidyverse_style)"
+      ],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "R: Install Required Packages",
+      "type": "shell",
+      "command": "C:\\Program Files\\R\\R-4.4.1\\bin\\Rscript.exe",
+      "args": [
+        "-e",
+        "packages <- c('lintr', 'styler', 'codetools', 'igraph', 'visNetwork', 'htmltools'); new_packages <- packages[!(packages %in% installed.packages()[,'Package'])]; if(length(new_packages)) install.packages(new_packages)"
+      ],
+      "group": "build"
+    }
+  ]
+}
