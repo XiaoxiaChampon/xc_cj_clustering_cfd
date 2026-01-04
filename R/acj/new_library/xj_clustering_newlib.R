@@ -32,8 +32,12 @@ library(tidyverse)
 # For: set_names (used in new_order.R functions)
 library(rlang)
 
-# Source the improved estimation functions
-source("R/XCATFDA/R/new_order.R")
+# Load the improved catfda package from root
+devtools::load_all("d:/PROJECTS/PAPERS/jasa_paper/catfda")
+
+# Source development files for ClusterSimulation and related functions
+#source("R/XCATFDADEV/helper.R")
+#source("R/XCATFDADEV/catfda_main.R")
 
 # ---- For: parallelization ----
 # For: foreach loop
@@ -374,7 +378,7 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
     # cat("\nCategFD", replica_idx, " --> seed: ", seed_cfd + 100 * replica_idx, "\n")
     cat("CategFD", replica_idx, "\n")
 
-    categ_func_data_list <- GenerateCategFuncData(prob_curves)
+    categ_func_data_list <- generate_categ_func_data(prob_curves)
 
     # what is Q vals ? better name???
     Q_vals <- unique(c(categ_func_data_list$W))
@@ -418,7 +422,7 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
         new_cluster_data <- GenerateClusterData(setting_choice, scenario, 3, 5, timeseries_length)
 
         new_prob_curves <- list(p1 = new_cluster_data$p1, p2 = new_cluster_data$p2, p3 = new_cluster_data$p3)
-        new_categ_func_data_list <- GenerateCategFuncData(new_prob_curves)
+        new_categ_func_data_list <- generate_categ_func_data(new_prob_curves)
 
         # what is this 3 ?? arbitrarily chosen?
         categ_func_data_list$W[, indv] <- new_categ_func_data_list$W[, 3]
@@ -449,7 +453,7 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
       timeKeeperStart("Xiaoxia")
       categFD_est <- estimate_categ_func_data(est_choice, timestamps01, categ_func_data_list$W)
       ##################### 9/11/2023
-      Z_est_curve[[replica_idx]] <- array(c(categFD_est$Z1_est, categFD_est$Z2_est), dim = c(timeseries_length, num_indvs, 2))
+      Z_est_curve[[replica_idx]] <- array(c(categFD_est$z1_est, categFD_est$z2_est), dim = c(timeseries_length, num_indvs, 2))
       p_est_curve[[replica_idx]] <- array(c(categFD_est$p1_est, categFD_est$p2_est, categFD_est$p3_est), dim = c(timeseries_length, num_indvs, 3))
       W_cfd[[replica_idx]] <- categ_func_data_list$W
       ##################### 9/11/2023
@@ -457,8 +461,8 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
 
       if (run_hellinger) {
         # evaluate performance Z and P
-        rmse1_temp <- c(by(mse_bw_matrix(Z1, categFD_est$Z1_est, timestamps01), true_cluster, mean))
-        rmse2_temp <- c(by(mse_bw_matrix(Z2, categFD_est$Z2_est, timestamps01), true_cluster, mean))
+        rmse1_temp <- c(by(mse_bw_matrix(Z1, categFD_est$z1_est, timestamps01), true_cluster, mean))
+        rmse2_temp <- c(by(mse_bw_matrix(Z2, categFD_est$z2_est, timestamps01), true_cluster, mean))
         rmse[replica_idx, , ] <- rbind(rmse1_temp, rmse2_temp)
 
         error.p1 <- mse_bw_matrixp(p1, categFD_est$p1_est, timestamps01)
@@ -480,7 +484,7 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
         mfpca_true <- extract_scores_UNIVFPCA(mZ1 = Z1, mZ2 = Z2, tt = timestamps01, PVE = 0.95)
         # plot(  scores_true$scores[, 1:2])
         timeKeeperStart("univfpca")
-        mfpca_est <- extract_scores_UNIVFPCA(mZ1 = categFD_est$Z1_est, mZ2 = categFD_est$Z2_est, tt = timestamps01, PVE = 0.95)
+        mfpca_est <- extract_scores_UNIVFPCA(mZ1 = categFD_est$z1_est, mZ2 = categFD_est$z2_est, tt = timestamps01, PVE = 0.95)
         timeKeeperNext()
       }
 
@@ -499,7 +503,7 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
       if (run_fadp) {
         true_fadp_temp <- fadp_cluster(mZ1 = Z1, mZ2 = Z2, tt = timestamps01)$label
         timeKeeperStart("fadp")
-        est_fadp_temp <- fadp_cluster(mZ1 = categFD_est$Z1_est, mZ2 = categFD_est$Z2_est, tt = timestamps01)$label
+        est_fadp_temp <- fadp_cluster(mZ1 = categFD_est$z1_est, mZ2 = categFD_est$z2_est, tt = timestamps01)$label
         timeKeeperNext()
       } else {
         true_fadp_temp <- rep(NA, num_indvs)
@@ -795,43 +799,6 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
   return(return_vals)
 }
 
-# Note: All estimation functions (estimate_categ_func_data, get_x_from_w, run_gam, etc.)
-# are sourced from R/XCATFDA/R/new_order.R at the top of this file
-
-GenerateCategFuncData <- function(prob_curves) {
-  curve_count <- length(prob_curves)
-
-  # we could have just passed these arguments ???
-  num_indvs <- ncol(prob_curves$p1)
-  timeseries_length <- nrow(prob_curves$p1)
-
-  # better names for W and X ???
-  W <- matrix(0, ncol = num_indvs, nrow = timeseries_length)
-  X_array <- array(0, c(num_indvs, timeseries_length, curve_count))
-
-  for (indv in c(1:num_indvs))
-  {
-    X <- sapply(
-      c(1:timeseries_length),
-      function(this_time) {
-        rmultinom(
-          n = 1,
-          size = 1,
-          prob = c(
-            prob_curves$p1[this_time, indv],
-            prob_curves$p2[this_time, indv],
-            prob_curves$p3[this_time, indv]
-          )
-        )
-      }
-    )
-    W[, indv] <- apply(X, 2, which.max)
-    X_array[indv, , ] <- t(X)
-  }
-
-  return(list(X = X_array, W = W)) # X_binary W_catfd
-}
-
 #' Get clustered data
 #'
 #'
@@ -950,6 +917,11 @@ GenerateClusterDataScenario <- function(num_indvs,
 }
 
 #' Psi function
+#' Constructs a set of smooth sinusodial basis functions (sine and cosine waves),
+#' evaluated at the provided timestamps, to be used as latent eigenfunctions/FPCA basis.
+#' @param klen number of basis functions to generate
+#' @param timestamps01 vector of timestamps scaled to [0,1]
+#' @return a matrix of basis functions evaluated at the timestamps
 #'
 PsiFunc <- function(klen, timestamps01) {
   psi_k1 <- sapply(c(1:klen), function(i) sin((2 * i + 1) * pi * timestamps01))
@@ -1201,22 +1173,30 @@ RunExperiment <- function(scenario, num_replicas, est_choice, some_identifier = 
 # A_2_binomial <- RunExperiment("A",2,"binomial","test")
 
 set.seed(123)
-# scenario <- "A"
-# num_replicas <- 2
-# est_choice <- "multinomial"
-# some_identifier <- "testneworder"
-# temp_folder <- file.path("outputs", "clustersims", paste(scenario, "_", num_replicas, "_", est_choice, "_", some_identifier, sep = ""))
-# # Empty the directory if it exists
-# if (dir.exists(temp_folder)) {
-#   unlink(temp_folder, recursive = TRUE)
-# }
-# dir.create(temp_folder)
-# print(temp_folder)
-# n100t300C <- ClusterSimulation(100, 300, scenario, num_replicas, est_choice, TRUE, temp_folder)
-A_2_multinomial_new <- RunExperiment("A", 1, "multinomial", "newOrder",
-  run_univfpca = FALSE, run_kmeans = FALSE, run_fadp = FALSE,
-  run_dbscan = FALSE, run_cfda = FALSE
-)
+scenario <- "A"
+num_replicas <- 2
+est_choice <- "multinomial"
+some_identifier <- "testneworder"
+temp_folder <- file.path("outputs", "clustersims", paste(scenario, "_", num_replicas, "_", est_choice, "_", some_identifier, sep = ""))
+# Empty the directory if it exists
+if (dir.exists(temp_folder)) {
+  unlink(temp_folder, recursive = TRUE)
+}
+dir.create(temp_folder)
+print(temp_folder)
+
+#prof <- profvis::profvis({
+n100t300C <- ClusterSimulation(100, 300, scenario, num_replicas, est_choice, TRUE, temp_folder)
+#})
+
+
+#htmlwidgets::saveWidget(prof, "profvis.html", selfcontained = TRUE)
+#browseURL("profvis.html")
+
+# A_2_multinomial_new <- RunExperiment("A", 1, "multinomial", "newOrder",
+#   run_univfpca = FALSE, run_kmeans = FALSE, run_fadp = FALSE,
+#   run_dbscan = FALSE, run_cfda = FALSE
+# )
 
 # save(C_2_probit,file="C_2_probit.RData")
 # set.seed(123)
