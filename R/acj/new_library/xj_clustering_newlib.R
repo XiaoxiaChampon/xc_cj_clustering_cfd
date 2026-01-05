@@ -26,6 +26,10 @@ library(fossil)
 # For: cfda method
 library(cfda)
 
+# For: ClickClust method
+library(ClickClust)
+library(clickstream)
+
 # For: gather method
 library(tidyverse)
 
@@ -164,6 +168,52 @@ fadp_cluster <- function(mZ1, mZ2, tt = tt, PVE = 0.95) {
 }
 
 
+#*** clustering using ClickClust EM algorithm
+# INPUT
+# W_matrix - categorical time series data (t x n matrix, t=time points, n=individuals)
+# OUTPUT
+# list with 2 elements: nclust (number of clusters), label (vector with cluster membership)
+#
+clickclust_cluster <- function(W_matrix) {
+  # Ensure W_matrix is a matrix
+  if (!is.matrix(W_matrix)) {
+    W_matrix <- as.matrix(W_matrix)
+  }
+  
+  # W_matrix is t x n, we need n x t for apply to work on individuals (rows)
+  W_transposed <- t(W_matrix)
+  
+  # Convert matrix rows to clickstream sequences
+  xw <- apply(W_transposed, 1, paste, collapse = ",")
+  clickstream_data <- as.clickstreams(xw, header = FALSE)
+  
+  # Convert to ClickClust compatible data
+  clickclust_data <- as.ClickClust(clickstream_data)
+  
+  # Select optimal number of clusters based on BIC
+  best_emclust <- NULL
+  min_bic <- Inf
+  best_K <- 2
+  
+  for (kval in 2:5) {
+    emclust <- click.EM(clickclust_data$X, y = clickclust_data$y, K = kval)
+    if (!is.na(emclust$BIC) && emclust$BIC <= min_bic) {
+      best_emclust <- emclust
+      min_bic <- emclust$BIC
+      best_K <- kval
+    }
+  }
+  
+  # If no valid model found, use K=2
+  if (is.null(best_emclust)) {
+    best_emclust <- click.EM(clickclust_data$X, y = clickclust_data$y, K = 2)
+    best_K <- 2
+  }
+  
+  return(list(nclust = best_K, label = best_emclust$id))
+}
+
+
 
 #*** extract scores using UNIVARIAFE fpca, FAST COV estimation.  SUPER FAST
 # INPUT
@@ -289,7 +339,7 @@ cfda_score_function <- function(cfda_data, nCores, timestamps01, basis_num) {
 ClusterSimulation <- function(num_indvs, timeseries_length,
                               scenario, num_replicas, est_choice_list, run_hellinger, temp_folder,
                               run_univfpca = TRUE, run_kmeans = TRUE, run_fadp = TRUE,
-                              run_dbscan = TRUE, run_cfda = TRUE) {
+                              run_dbscan = TRUE, run_cfda = TRUE, run_clickclust = TRUE) {
   cat(
     "Cluster Simulation\nNum Indvs:\t", num_indvs,
     "\nTimeseries Len:\t", timeseries_length,
@@ -314,6 +364,7 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
   true_kmeans <- est_kmeans <- NULL # records clustering membership on the TRUE SCORES/ESTIMATED SCORES
   true_fadp <- est_fadp <- NULL # records clustering membership on the TRUE Z/ESTIMATED Z
   true_dbscan <- est_dbscan <- NULL
+  true_clickclust <- est_clickclust <- NULL # records clustering membership for ClickClust
 
   time_elapsed <<- list()
   # "Xiaoxia"=NULL, "univfpca"=NULL, "kmeans"=NULL, "fadp"=NULL, "dbscan"=NULL, "cfd"=NULL)
@@ -381,7 +432,7 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
     categ_func_data_list <- generate_categ_func_data(prob_curves)
 
     # what is Q vals ? better name???
-    Q_vals <- unique(c(categ_func_data_list$W))
+    Q_vals <- unique(c(categ_func_data_list$w_mat))
     if (is.numeric(Q_vals)) {
       Q_vals <- sort(Q_vals)
     }
@@ -406,7 +457,7 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
       # In general, one category only occurs 2 times
       # If timepoints=300, one category only occurs less than 4 times 3/300=0.01
       # If timepoints=750, one category only occurs less than 6 times 5/750=0.0067
-      tolcat <- table(categ_func_data_list$W[, indv])
+      tolcat <- table(categ_func_data_list$w_mat[, indv])
       catorder <- order(tolcat, decreasing = TRUE)
       numcat <- length(catorder)
       refcat <- catorder[numcat]
@@ -425,17 +476,17 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
         new_categ_func_data_list <- generate_categ_func_data(new_prob_curves)
 
         # what is this 3 ?? arbitrarily chosen?
-        categ_func_data_list$W[, indv] <- new_categ_func_data_list$W[, 3]
+        categ_func_data_list$w_mat[, indv] <- new_categ_func_data_list$w_mat[, 3]
         Z1[, indv] <- new_cluster_data$Z1[, 3] # latent curves Z1 and Z2
-        categ_func_data_list$X[indv, , ] <- 0
+        categ_func_data_list$x_array[indv, , ] <- 0
         Z2[, indv] <- new_cluster_data$Z2[, 3]
 
         for (this_time in 1:timeseries_length)
         {
-          categ_func_data_list$X[indv, this_time, which(Q_vals == categ_func_data_list$W[, indv][this_time])] <- 1
+          categ_func_data_list$x_array[indv, this_time, which(Q_vals == categ_func_data_list$w_mat[, indv][this_time])] <- 1
         }
 
-        tolcat <- table(categ_func_data_list$W[, indv])
+        tolcat <- table(categ_func_data_list$w_mat[, indv])
         catorder <- order(tolcat, decreasing = TRUE)
         numcat <- length(catorder)
         refcat <- catorder[numcat]
@@ -451,11 +502,11 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
       cat("estimate_categ_func_data", replica_idx, "\n")
       timestamps01 <- seq(from = 0.0001, to = 1, length = timeseries_length)
       timeKeeperStart("Xiaoxia")
-      categFD_est <- estimate_categ_func_data(est_choice, timestamps01, categ_func_data_list$W)
+      categFD_est <- estimate_categ_func_data(est_choice, timestamps01, categ_func_data_list$w_mat)
       ##################### 9/11/2023
       Z_est_curve[[replica_idx]] <- array(c(categFD_est$z1_est, categFD_est$z2_est), dim = c(timeseries_length, num_indvs, 2))
       p_est_curve[[replica_idx]] <- array(c(categFD_est$p1_est, categFD_est$p2_est, categFD_est$p3_est), dim = c(timeseries_length, num_indvs, 3))
-      W_cfd[[replica_idx]] <- categ_func_data_list$W
+      W_cfd[[replica_idx]] <- categ_func_data_list$w_mat
       ##################### 9/11/2023
       timeKeeperNext()
 
@@ -526,7 +577,7 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
         true_dbscan_temp_cfda <- true_cluster_db
         parallel::stopCluster(cl = my.cluster)
         timeKeeperStart("cfd")
-        cfd_scores <- cfda_score_function(categ_func_data_list$W, nCores, timestamps01, basis_num)
+        cfd_scores <- cfda_score_function(categ_func_data_list$w_mat, nCores, timestamps01, basis_num)
         my.cluster <- parallel::makeCluster(n.cores, type = "PSOCK")
         doParallel::registerDoParallel(cl = my.cluster)
         cat("Parellel Registered: ", foreach::getDoParRegistered(), "\n")
@@ -535,6 +586,20 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
         true_dbscan_temp_cfda <- rep(NA, length(true_cluster_db))
         est_dbscan_temp_cfda <- rep(NA, length(true_cluster_db))
       }
+      
+      # ClickClust
+      if (run_clickclust) {
+        # Generate true W from true probabilities
+        true_categ_func_data <- generate_categ_func_data(list(p1 = p1, p2 = p2, p3 = p3))
+        true_clickclust_temp <- clickclust_cluster(true_categ_func_data$w_mat)$label
+        timeKeeperStart("clickclust")
+        est_clickclust_temp <- clickclust_cluster(categ_func_data_list$w_mat)$label
+        timeKeeperNext()
+      } else {
+        true_clickclust_temp <- rep(NA, num_indvs)
+        est_clickclust_temp <- rep(NA, num_indvs)
+      }
+      
       # record results
       true_dbscan <- cbind(true_dbscan, true_dbscan_temp)
       est_dbscan <- cbind(est_dbscan, est_dbscan_temp)
@@ -547,6 +612,9 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
 
       true_fadp <- cbind(true_fadp, true_fadp_temp)
       est_fadp <- cbind(est_fadp, est_fadp_temp)
+
+      true_clickclust <- cbind(true_clickclust, true_clickclust_temp)
+      est_clickclust <- cbind(est_clickclust, est_clickclust_temp)
 
       cat("Done replica:", replica_idx, "\n")
     } # End for est_choice_list
@@ -629,6 +697,23 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
     true_fadp_cpn <- rep(NA, num_replicas)
   }
 
+  # clickclust
+  if (run_clickclust) {
+    true_clickclust_ri <- apply(true_clickclust, 2, function(cluster) {
+      evaluate_cluster(true_cluster = true_cluster, new_cluster = cluster, 3)$ri
+    })
+    true_clickclust_ari <- apply(true_clickclust, 2, function(cluster) {
+      evaluate_cluster(true_cluster = true_cluster, new_cluster = cluster, 3)$ari
+    })
+    true_clickclust_cpn <- apply(true_clickclust, 2, function(cluster) {
+      evaluate_cluster(true_cluster = true_cluster, new_cluster = cluster, 3)$cpn
+    })
+  } else {
+    true_clickclust_ri <- rep(NA, num_replicas)
+    true_clickclust_ari <- rep(NA, num_replicas)
+    true_clickclust_cpn <- rep(NA, num_replicas)
+  }
+
 
 
   ##### estimate results
@@ -698,6 +783,23 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
     est_fadp_cpn <- rep(NA, num_replicas)
   }
 
+  # clickclust
+  if (run_clickclust) {
+    est_clickclust_ri <- apply(est_clickclust, 2, function(cluster) {
+      evaluate_cluster(true_cluster = true_cluster, new_cluster = cluster, 3)$ri
+    })
+    est_clickclust_ari <- apply(est_clickclust, 2, function(cluster) {
+      evaluate_cluster(true_cluster = true_cluster, new_cluster = cluster, 3)$ari
+    })
+    est_clickclust_cpn <- apply(est_clickclust, 2, function(cluster) {
+      evaluate_cluster(true_cluster = true_cluster, new_cluster = cluster, 3)$cpn
+    })
+  } else {
+    est_clickclust_ri <- rep(NA, num_replicas)
+    est_clickclust_ari <- rep(NA, num_replicas)
+    est_clickclust_cpn <- rep(NA, num_replicas)
+  }
+
 
 
 
@@ -715,13 +817,17 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
     mean(true_kmeans_cpn),
     mean(true_dbscan_ri),
     mean(true_dbscan_ari),
-    mean(true_dbscan_cpn)
+    mean(true_dbscan_cpn),
+    mean(true_clickclust_ri),
+    mean(true_clickclust_ari),
+    mean(true_clickclust_cpn)
   )
   names(cluster_table_true) <- c(
     "cfda-db RI", "cfda-db ARI", "cfda-db cpn",
     "fadp RI", "fadp ARI", "fadp cpn",
     "kmeans RI", "kmeans ARI", "kmeans cpn",
-    "dbscan RI", "dbscan ARI", "dbscan cpn"
+    "dbscan RI", "dbscan ARI", "dbscan cpn",
+    "clickclust RI", "clickclust ARI", "clickclust cpn"
   )
 
   cluster_table_est <- c(
@@ -736,13 +842,17 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
     mean(est_kmeans_cpn),
     mean(est_dbscan_ri),
     mean(est_dbscan_ari),
-    mean(est_dbscan_cpn)
+    mean(est_dbscan_cpn),
+    mean(est_clickclust_ri),
+    mean(est_clickclust_ari),
+    mean(est_clickclust_cpn)
   )
   names(cluster_table_est) <- c(
     "cfda-db RI", "cfda-db ARI", "cfda-db cpn",
     "fadp RI", "fadp ARI", "fadp cpn",
     "kmeans RI", "kmeans ARI", "kmeans cpn",
-    "dbscan RI", "dbscan ARI", "dbscan cpn"
+    "dbscan RI", "dbscan ARI", "dbscan cpn",
+    "clickclust RI", "clickclust ARI", "clickclust cpn"
   )
 
 
@@ -758,13 +868,17 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
     sd(est_kmeans_cpn) / sqrt(num_replicas),
     sd(est_dbscan_ri) / sqrt(num_replicas),
     sd(est_dbscan_ari) / sqrt(num_replicas),
-    sd(est_dbscan_cpn) / sqrt(num_replicas)
+    sd(est_dbscan_cpn) / sqrt(num_replicas),
+    sd(est_clickclust_ri) / sqrt(num_replicas),
+    sd(est_clickclust_ari) / sqrt(num_replicas),
+    sd(est_clickclust_cpn) / sqrt(num_replicas)
   )
   names(cluster_table_est_se) <- c(
     "cfda-db RI", "cfda-db ARI", "cfda-db cpn",
     "fadp RI", "fadp ARI", "fadp cpn",
     "kmeans RI", "kmeans ARI", "kmeans cpn",
-    "dbscan RI", "dbscan ARI", "dbscan cpn"
+    "dbscan RI", "dbscan ARI", "dbscan cpn",
+    "clickclust RI", "clickclust ARI", "clickclust cpn"
   )
   print("returning")
 
@@ -931,7 +1045,7 @@ PsiFunc <- function(klen, timestamps01) {
 
 RunExperiment <- function(scenario, num_replicas, est_choice, some_identifier = "noid",
                           run_univfpca = TRUE, run_kmeans = TRUE, run_fadp = TRUE,
-                          run_dbscan = TRUE, run_cfda = TRUE) {
+                          run_dbscan = TRUE, run_cfda = TRUE, run_clickclust = TRUE) {
   temp_folder <- file.path("outputs", "clustersims", paste(scenario, "_", num_replicas, "_", est_choice, "_", some_identifier, sep = ""))
   # Empty the directory if it exists
   if (dir.exists(temp_folder)) {
@@ -945,43 +1059,43 @@ RunExperiment <- function(scenario, num_replicas, est_choice, some_identifier = 
   # est_choice="probit"
   n100t300C <- ClusterSimulation(
     100, 300, scenario, num_replicas, est_choice, TRUE, temp_folder,
-    run_univfpca, run_kmeans, run_fadp, run_dbscan, run_cfda
+    run_univfpca, run_kmeans, run_fadp, run_dbscan, run_cfda, run_clickclust
   )
   n100t750C <- ClusterSimulation(
     100, 750, scenario, num_replicas, est_choice, TRUE, temp_folder,
-    run_univfpca, run_kmeans, run_fadp, run_dbscan, run_cfda
+    run_univfpca, run_kmeans, run_fadp, run_dbscan, run_cfda, run_clickclust
   )
   n100t2000C <- ClusterSimulation(
     100, 2000, scenario, num_replicas, est_choice, TRUE, temp_folder,
-    run_univfpca, run_kmeans, run_fadp, run_dbscan, run_cfda
+    run_univfpca, run_kmeans, run_fadp, run_dbscan, run_cfda, run_clickclust
   )
 
 
   n500t300C <- ClusterSimulation(
     500, 300, scenario, num_replicas, est_choice, TRUE, temp_folder,
-    run_univfpca, run_kmeans, run_fadp, run_dbscan, run_cfda
+    run_univfpca, run_kmeans, run_fadp, run_dbscan, run_cfda, run_clickclust
   )
   n500t750C <- ClusterSimulation(
     500, 750, scenario, num_replicas, est_choice, TRUE, temp_folder,
-    run_univfpca, run_kmeans, run_fadp, run_dbscan, run_cfda
+    run_univfpca, run_kmeans, run_fadp, run_dbscan, run_cfda, run_clickclust
   )
   n500t2000C <- ClusterSimulation(
     500, 2000, scenario, num_replicas, est_choice, TRUE, temp_folder,
-    run_univfpca, run_kmeans, run_fadp, run_dbscan, run_cfda
+    run_univfpca, run_kmeans, run_fadp, run_dbscan, run_cfda, run_clickclust
   )
 
 
   n1000t300C <- ClusterSimulation(
     1000, 300, scenario, num_replicas, est_choice, TRUE, temp_folder,
-    run_univfpca, run_kmeans, run_fadp, run_dbscan, run_cfda
+    run_univfpca, run_kmeans, run_fadp, run_dbscan, run_cfda, run_clickclust
   )
   n1000t750C <- ClusterSimulation(
     1000, 750, scenario, num_replicas, est_choice, TRUE, temp_folder,
-    run_univfpca, run_kmeans, run_fadp, run_dbscan, run_cfda
+    run_univfpca, run_kmeans, run_fadp, run_dbscan, run_cfda, run_clickclust
   )
   n1000t2000C <- ClusterSimulation(
     1000, 2000, scenario, num_replicas, est_choice, TRUE, temp_folder,
-    run_univfpca, run_kmeans, run_fadp, run_dbscan, run_cfda
+    run_univfpca, run_kmeans, run_fadp, run_dbscan, run_cfda, run_clickclust
   )
 
   true_tableC <- rbind(
@@ -1186,7 +1300,9 @@ dir.create(temp_folder)
 print(temp_folder)
 
 #prof <- profvis::profvis({
-n100t300C <- ClusterSimulation(100, 300, scenario, num_replicas, est_choice, TRUE, temp_folder)
+n100t300C <- ClusterSimulation(100, 300, scenario, num_replicas, est_choice, FALSE, temp_folder,
+                               run_univfpca = TRUE, run_kmeans = TRUE, run_fadp = TRUE,
+                               run_dbscan = TRUE, run_cfda = FALSE, run_clickclust = TRUE)
 #})
 
 
