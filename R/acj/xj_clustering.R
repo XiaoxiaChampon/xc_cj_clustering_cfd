@@ -1361,8 +1361,33 @@ RunExperiment <- function(scenario, num_replicas, est_choice, some_identifier="n
  # set.seed(123)
  # A_2_binomial <- RunExperiment("A",2,"binomial","test")
  
- set.seed(123)
- A_2_multinomial_new_old <- RunExperiment("A",2,"multinomial","test")
+# set.seed(123)
+# A_2_multinomial_new_old <- RunExperiment("A",2,"multinomial","test")
+scenario = "A"
+num_replicas = 1
+est_choice = "multinomial"
+some_identifier = "testvalues"
+temp_folder <- file.path("outputs", "clustersims", paste(scenario, "_", num_replicas, "_", est_choice, "_", some_identifier, sep=""))
+# Empty the directory if it exists
+if(dir.exists(temp_folder)){
+  unlink(temp_folder, recursive = TRUE)
+}
+dir.create(temp_folder)
+print(temp_folder)
+n100t300C <- ClusterSimulation(100,300,scenario,num_replicas,est_choice,TRUE,temp_folder)
+n100t750C <- ClusterSimulation(100,750,scenario,num_replicas,est_choice,TRUE,temp_folder)
+n100t2000C <- ClusterSimulation(100,2000,scenario,num_replicas,est_choice,TRUE,temp_folder)
+
+
+n500t300C <- ClusterSimulation(500,300,scenario,num_replicas,est_choice,TRUE,temp_folder)
+n500t750C <- ClusterSimulation(500,750,scenario,num_replicas,est_choice,TRUE,temp_folder)
+n500t2000C <- ClusterSimulation(500,2000,scenario,num_replicas,est_choice,TRUE,temp_folder)
+
+
+n1000t300C <- ClusterSimulation(1000,300,scenario,num_replicas,est_choice,TRUE,temp_folder)
+n1000t750C <- ClusterSimulation(1000,750,scenario,num_replicas,est_choice,TRUE,temp_folder)
+n1000t2000C <- ClusterSimulation(1000,2000,scenario,num_replicas,est_choice,TRUE,temp_folder)
+
  
  #save(C_2_probit,file="C_2_probit.RData")
 # set.seed(123)
