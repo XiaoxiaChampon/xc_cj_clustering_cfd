@@ -39,6 +39,9 @@ library(rlang)
 # Load the improved catfda package from root
 devtools::load_all("d:/PROJECTS/PAPERS/jasa_paper/catfda")
 
+# Source trapz helper functions (used inside parallel loops via .export)
+source("R/acj/trapzfnum_function.R")
+
 # Source development files for ClusterSimulation and related functions
 #source("R/XCATFDADEV/helper.R")
 #source("R/XCATFDADEV/catfda_main.R")
@@ -271,8 +274,7 @@ mse_bw_matrix <- function(truecurve, estcurve, timestamps01) {
   # datapoints=dim(truecurve)[1]
   # mseall=c(0)
   ###### could probably use apply function here it's also subject level
-  mseall <- foreach(i = 1:n, .combine = c, .packages = c("pracma")) %dorng% {
-    source("R/acj/trapzfnum_function.R")
+  mseall <- foreach(i = 1:n, .combine = c, .packages = c("pracma"), .export = c("trapzfnum")) %dorng% {
     return(rbind(trapzfnum(truecurve[, i], estcurve[, i], timestamps01)))
   }
 
@@ -292,8 +294,7 @@ mse_bw_matrixp <- function(truecurve, estcurve, timestamps01) {
   # }
 
   sqrt_2 <- sqrt(2)
-  mseall <- foreach(i = 1:n, .combine = c, .packages = c("pracma")) %dorng% {
-    source("R/acj/trapzfnum_function.R")
+  mseall <- foreach(i = 1:n, .combine = c, .packages = c("pracma"), .export = c("trapzfnump")) %dorng% {
     return(rbind(trapzfnump(truecurve[, i], estcurve[, i], timestamps01) / sqrt_2))
   }
 
@@ -582,6 +583,7 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
         doParallel::registerDoParallel(cl = my.cluster)
         cat("Parellel Registered: ", foreach::getDoParRegistered(), "\n")
         est_dbscan_temp_cfda <- dbscan_cluster(data = cfd_scores, 1)$label
+        timeKeeperNext()
       } else {
         true_dbscan_temp_cfda <- rep(NA, length(true_cluster_db))
         est_dbscan_temp_cfda <- rep(NA, length(true_cluster_db))
@@ -1288,9 +1290,9 @@ RunExperiment <- function(scenario, num_replicas, est_choice, some_identifier = 
 
 set.seed(123)
 scenario <- "A"
-num_replicas <- 2
+num_replicas <- 1
 est_choice <- "multinomial"
-some_identifier <- "testneworder"
+some_identifier <- "Table1Data"
 temp_folder <- file.path("outputs", "clustersims", paste(scenario, "_", num_replicas, "_", est_choice, "_", some_identifier, sep = ""))
 # Empty the directory if it exists
 if (dir.exists(temp_folder)) {
@@ -1300,19 +1302,19 @@ dir.create(temp_folder)
 print(temp_folder)
 
 #prof <- profvis::profvis({
-n100t300C <- ClusterSimulation(100, 300, scenario, num_replicas, est_choice, FALSE, temp_folder,
-                               run_univfpca = TRUE, run_kmeans = TRUE, run_fadp = TRUE,
-                               run_dbscan = TRUE, run_cfda = FALSE, run_clickclust = TRUE)
+# n100t300C <- ClusterSimulation(100, 300, scenario, num_replicas, est_choice, TRUE, temp_folder,
+#                                run_univfpca = TRUE, run_kmeans = TRUE, run_fadp = TRUE,
+#                                run_dbscan = TRUE, run_cfda = TRUE, run_clickclust = TRUE)
 #})
 
 
 #htmlwidgets::saveWidget(prof, "profvis.html", selfcontained = TRUE)
 #browseURL("profvis.html")
 
-# A_2_multinomial_new <- RunExperiment("A", 1, "multinomial", "newOrder",
-#   run_univfpca = FALSE, run_kmeans = FALSE, run_fadp = FALSE,
-#   run_dbscan = FALSE, run_cfda = FALSE
-# )
+A_2_multinomial_new <- RunExperiment(scenario, num_replicas , est_choice, some_identifier,
+  run_univfpca = FALSE, run_kmeans = FALSE, run_fadp = FALSE,
+  run_dbscan = FALSE, run_cfda = FALSE, run_clickclust = FALSE
+)
 
 # save(C_2_probit,file="C_2_probit.RData")
 # set.seed(123)
