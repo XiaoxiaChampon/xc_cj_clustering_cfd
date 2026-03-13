@@ -296,7 +296,8 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
   true_kmeans <- est_kmeans  <- NULL # records clustering membership on the TRUE SCORES/ESTIMATED SCORES
   true_fadp <- est_fadp <-  NULL # records clustering membership on the TRUE Z/ESTIMATED Z
   true_dbscan <- est_dbscan <-  NULL
-  
+  true_dbscan_cfda <- est_dbscan_cfda <- NULL
+
   time_elapsed <<- list()
   # "Xiaoxia"=NULL, "univfpca"=NULL, "kmeans"=NULL, "fadp"=NULL, "dbscan"=NULL, "cfd"=NULL)
   last_time <- 0
@@ -508,8 +509,8 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
       true_dbscan<- cbind(true_dbscan, true_dbscan_temp)
       est_dbscan <- cbind(est_dbscan, est_dbscan_temp)
       
-      true_dbscan_cfda<- cbind(true_dbscan, true_dbscan_temp_cfda)
-      est_dbscan_cfda <- cbind(est_dbscan, est_dbscan_temp_cfda)
+      true_dbscan_cfda <- cbind(true_dbscan_cfda, true_dbscan_temp_cfda)
+      est_dbscan_cfda <- cbind(est_dbscan_cfda, est_dbscan_temp_cfda)
   
       true_kmeans<- cbind(true_kmeans, true_kmeans_temp)
       est_kmeans <- cbind(est_kmeans,  est_kmeans_temp)

@@ -315,6 +315,7 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
   true_kmeans <- est_kmeans <- NULL # records clustering membership on the TRUE SCORES/ESTIMATED SCORES
   true_fadp <- est_fadp <- NULL # records clustering membership on the TRUE Z/ESTIMATED Z
   true_dbscan <- est_dbscan <- NULL
+  true_dbscan_cfda <- est_dbscan_cfda <- NULL
 
   time_elapsed <<- list()
   # "Xiaoxia"=NULL, "univfpca"=NULL, "kmeans"=NULL, "fadp"=NULL, "dbscan"=NULL, "cfd"=NULL)
@@ -540,8 +541,8 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
       true_dbscan <- cbind(true_dbscan, true_dbscan_temp)
       est_dbscan <- cbind(est_dbscan, est_dbscan_temp)
 
-      true_dbscan_cfda <- cbind(true_dbscan, true_dbscan_temp_cfda)
-      est_dbscan_cfda <- cbind(est_dbscan, est_dbscan_temp_cfda)
+      true_dbscan_cfda <- cbind(true_dbscan_cfda, true_dbscan_temp_cfda)
+      est_dbscan_cfda <- cbind(est_dbscan_cfda, est_dbscan_temp_cfda)
 
       true_kmeans <- cbind(true_kmeans, true_kmeans_temp)
       est_kmeans <- cbind(est_kmeans, est_kmeans_temp)
@@ -580,21 +581,21 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
     true_dbscan_cpn <- rep(NA, num_replicas)
   }
   # dbscan cfda
-  ########## CFDA EVALUATION - COMMENTED OUT ##########
-  # true_dbscan_ri_cfda <- apply(true_dbscan_cfda, 2, function(cluster) {
-  #   evaluate_cluster(true_cluster = true_cluster_db, new_cluster = cluster, 0)$ri
-  # })
-  # true_dbscan_ari_cfda <- apply(true_dbscan_cfda, 2, function(cluster) {
-  #   evaluate_cluster(true_cluster = true_cluster_db, new_cluster = cluster, 0)$ari
-  # })
-  # true_dbscan_cpn_cfda <- apply(true_dbscan_cfda, 2, function(cluster) {
-  #   evaluate_cluster(true_cluster = true_cluster_db, new_cluster = cluster, 0)$cpn
-  # })
-  # Placeholder variables for cfda metrics
-  true_dbscan_ri_cfda <- rep(NA, num_replicas)
-  true_dbscan_ari_cfda <- rep(NA, num_replicas)
-  true_dbscan_cpn_cfda <- rep(NA, num_replicas)
-  ########## END CFDA EVALUATION ##########
+  if (run_cfda) {
+    true_dbscan_ri_cfda <- apply(true_dbscan_cfda, 2, function(cluster) {
+      evaluate_cluster(true_cluster = true_cluster_db, new_cluster = cluster, 0)$ri
+    })
+    true_dbscan_ari_cfda <- apply(true_dbscan_cfda, 2, function(cluster) {
+      evaluate_cluster(true_cluster = true_cluster_db, new_cluster = cluster, 0)$ari
+    })
+    true_dbscan_cpn_cfda <- apply(true_dbscan_cfda, 2, function(cluster) {
+      evaluate_cluster(true_cluster = true_cluster_db, new_cluster = cluster, 0)$cpn
+    })
+  } else {
+    true_dbscan_ri_cfda <- rep(NA, num_replicas)
+    true_dbscan_ari_cfda <- rep(NA, num_replicas)
+    true_dbscan_cpn_cfda <- rep(NA, num_replicas)
+  }
 
   ### kmeans
   if (run_kmeans) {
@@ -650,21 +651,21 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
     est_dbscan_cpn <- rep(NA, num_replicas)
   }
   # dbscan cfda
-  ########## CFDA EVALUATION - COMMENTED OUT ##########
-  # est_dbscan_ri_cfda <- apply(est_dbscan_cfda, 2, function(cluster) {
-  #   evaluate_cluster(true_cluster = true_cluster_db, new_cluster = cluster, 0)$ri
-  # })
-  # est_dbscan_ari_cfda <- apply(est_dbscan_cfda, 2, function(cluster) {
-  #   evaluate_cluster(true_cluster = true_cluster_db, new_cluster = cluster, 0)$ari
-  # })
-  # est_dbscan_cpn_cfda <- apply(est_dbscan_cfda, 2, function(cluster) {
-  #   evaluate_cluster(true_cluster = true_cluster_db, new_cluster = cluster, 0)$cpn
-  # })
-  # Placeholder variables for cfda metrics
-  est_dbscan_ri_cfda <- rep(NA, num_replicas)
-  est_dbscan_ari_cfda <- rep(NA, num_replicas)
-  est_dbscan_cpn_cfda <- rep(NA, num_replicas)
-  ########## END CFDA EVALUATION ##########
+  if (run_cfda) {
+    est_dbscan_ri_cfda <- apply(est_dbscan_cfda, 2, function(cluster) {
+      evaluate_cluster(true_cluster = true_cluster_db, new_cluster = cluster, 0)$ri
+    })
+    est_dbscan_ari_cfda <- apply(est_dbscan_cfda, 2, function(cluster) {
+      evaluate_cluster(true_cluster = true_cluster_db, new_cluster = cluster, 0)$ari
+    })
+    est_dbscan_cpn_cfda <- apply(est_dbscan_cfda, 2, function(cluster) {
+      evaluate_cluster(true_cluster = true_cluster_db, new_cluster = cluster, 0)$cpn
+    })
+  } else {
+    est_dbscan_ri_cfda <- rep(NA, num_replicas)
+    est_dbscan_ari_cfda <- rep(NA, num_replicas)
+    est_dbscan_cpn_cfda <- rep(NA, num_replicas)
+  }
   ### kmeans
   if (run_kmeans) {
     est_kmeans_ri <- apply(est_kmeans, 2, function(cluster) {
@@ -963,6 +964,10 @@ PsiFunc <- function(klen, timestamps01) {
 }
 
 
+# Guard: set .just_load_functions <- TRUE before sourcing this file to load
+# function definitions only, without executing the scenario A run block below.
+if (!isTRUE(.just_load_functions)) {
+
 set.seed(123)
 
 scenario <- "A"
@@ -998,3 +1003,5 @@ if (run_parallel) {
   parallel::stopCluster(cl = my.cluster)
   initialized_parallel <- FALSE
 }
+
+} # end guard: !isTRUE(.just_load_functions)
