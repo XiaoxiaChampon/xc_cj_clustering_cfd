@@ -380,10 +380,10 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
     # cat("\nCategFD", replica_idx, " --> seed: ", seed_cfd + 100 * replica_idx, "\n")
     cat("CategFD", replica_idx, "\n")
 
-    categ_func_data_list <- GenerateCategFuncData(prob_curves)
+    categ_func_data_list <- generate_categ_func_data(prob_curves)
 
     # what is Q vals ? better name???
-    Q_vals <- unique(c(categ_func_data_list$W))
+    Q_vals <- unique(c(categ_func_data_list$w_mat))
     if (is.numeric(Q_vals)) {
       Q_vals <- sort(Q_vals)
     }
@@ -408,7 +408,7 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
       # In general, one category only occurs 2 times
       # If timepoints=300, one category only occurs less than 4 times 3/300=0.01
       # If timepoints=750, one category only occurs less than 6 times 5/750=0.0067
-      tolcat <- table(categ_func_data_list$W[, indv])
+      tolcat <- table(categ_func_data_list$w_mat[, indv])
       catorder <- order(tolcat, decreasing = TRUE)
       numcat <- length(catorder)
       refcat <- catorder[numcat]
@@ -424,20 +424,20 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
         new_cluster_data <- GenerateClusterData(setting_choice, scenario, 3, 5, timeseries_length)
 
         new_prob_curves <- list(p1 = new_cluster_data$p1, p2 = new_cluster_data$p2, p3 = new_cluster_data$p3)
-        new_categ_func_data_list <- GenerateCategFuncData(new_prob_curves)
+        new_categ_func_data_list <- generate_categ_func_data(new_prob_curves)
 
         # what is this 3 ?? arbitrarily chosen?
-        categ_func_data_list$W[, indv] <- new_categ_func_data_list$W[, 3]
+        categ_func_data_list$w_mat[, indv] <- new_categ_func_data_list$w_mat[, 3]
         Z1[, indv] <- new_cluster_data$Z1[, 3] # latent curves Z1 and Z2
-        categ_func_data_list$X[indv, , ] <- 0
+        categ_func_data_list$x_array[indv, , ] <- 0
         Z2[, indv] <- new_cluster_data$Z2[, 3]
 
         for (this_time in 1:timeseries_length)
         {
-          categ_func_data_list$X[indv, this_time, which(Q_vals == categ_func_data_list$W[, indv][this_time])] <- 1
+          categ_func_data_list$x_array[indv, this_time, which(Q_vals == categ_func_data_list$w_mat[, indv][this_time])] <- 1
         }
 
-        tolcat <- table(categ_func_data_list$W[, indv])
+        tolcat <- table(categ_func_data_list$w_mat[, indv])
         catorder <- order(tolcat, decreasing = TRUE)
         numcat <- length(catorder)
         refcat <- catorder[numcat]
@@ -453,11 +453,11 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
       cat("estimate_categ_func_data", replica_idx, "\n")
       timestamps01 <- seq(from = 0.0001, to = 1, length = timeseries_length)
       timeKeeperStart("Xiaoxia")
-      categFD_est <- estimate_categ_func_data(est_choice, timestamps01, categ_func_data_list$W)
+      categFD_est <- estimate_categ_func_data(est_choice, timestamps01, categ_func_data_list$w_mat)
       ##################### 9/11/2023
       Z_est_curve[[replica_idx]] <- array(c(categFD_est$z1_est, categFD_est$z2_est), dim = c(timeseries_length, num_indvs, 2))
       p_est_curve[[replica_idx]] <- array(c(categFD_est$p1_est, categFD_est$p2_est, categFD_est$p3_est), dim = c(timeseries_length, num_indvs, 3))
-      W_cfd[[replica_idx]] <- categ_func_data_list$W
+      W_cfd[[replica_idx]] <- categ_func_data_list$w_mat
       ##################### 9/11/2023
       timeKeeperNext()
 
@@ -528,7 +528,7 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
         true_dbscan_temp_cfda <- true_cluster_db
         parallel::stopCluster(cl = my.cluster)
         timeKeeperStart("cfd")
-        cfd_scores <- cfda_score_function(categ_func_data_list$W, nCores, timestamps01, basis_num)
+        cfd_scores <- cfda_score_function(categ_func_data_list$w_mat, nCores, timestamps01, basis_num)
         my.cluster <- parallel::makeCluster(n.cores, type = "PSOCK")
         doParallel::registerDoParallel(cl = my.cluster)
         cat("Parellel Registered: ", foreach::getDoParRegistered(), "\n")
@@ -801,28 +801,25 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
   return(return_vals)
 }
 
-# Note: All estimation functions (estimate_categ_func_data, get_x_from_w, run_gam, etc.)
-# are sourced from R/XCATFDA/R/new_order.R at the top of this file
-
-GenerateCategFuncData <- function(prob_curves) {
+# ---- Legacy version kept for reference and validation --------------------------------
+# The active code now calls generate_categ_func_data() from the catfda package.
+# The package version adds input validation and returns $w_mat / $x_array instead of
+# $W / $X.  The legacy version is preserved below for cross-checking.
+#
+GenerateCategFuncData_legacy <- function(prob_curves) {
   curve_count <- length(prob_curves)
-
-  # we could have just passed these arguments ???
   num_indvs <- ncol(prob_curves$p1)
   timeseries_length <- nrow(prob_curves$p1)
 
-  # better names for W and X ???
   W <- matrix(0, ncol = num_indvs, nrow = timeseries_length)
   X_array <- array(0, c(num_indvs, timeseries_length, curve_count))
 
-  for (indv in c(1:num_indvs))
-  {
+  for (indv in c(1:num_indvs)) {
     X <- sapply(
       c(1:timeseries_length),
       function(this_time) {
         rmultinom(
-          n = 1,
-          size = 1,
+          n = 1, size = 1,
           prob = c(
             prob_curves$p1[this_time, indv],
             prob_curves$p2[this_time, indv],
@@ -834,9 +831,54 @@ GenerateCategFuncData <- function(prob_curves) {
     W[, indv] <- apply(X, 2, which.max)
     X_array[indv, , ] <- t(X)
   }
-
-  return(list(X = X_array, W = W)) # X_binary W_catfd
+  return(list(X = X_array, W = W))
 }
+
+#' Validate that generate_categ_func_data() (package) matches GenerateCategFuncData_legacy()
+#'
+#' Runs both functions with the same seed on synthetic probability curves and
+#' checks that the categorical output (W / w_mat) and one-hot array (X / x_array)
+#' are element-wise identical.
+#'
+#' @param seed Integer seed for reproducibility (default 42)
+#' @param n_time Number of time points (default 30)
+#' @param n_indvs Number of individuals (default 10)
+#' @return Invisible TRUE if all checks pass; stops with an error message otherwise.
+#'
+validate_generate_categ_func_data <- function(seed = 42, n_time = 30, n_indvs = 10) {
+  # Build simple probability curves that sum to 1
+  set.seed(seed)
+  raw <- matrix(runif(n_time * n_indvs * 3), nrow = n_time * n_indvs)
+  raw <- raw / rowSums(raw)
+  p1 <- matrix(raw[, 1], nrow = n_time, ncol = n_indvs)
+  p2 <- matrix(raw[, 2], nrow = n_time, ncol = n_indvs)
+  p3 <- matrix(raw[, 3], nrow = n_time, ncol = n_indvs)
+  prob_curves <- list(p1 = p1, p2 = p2, p3 = p3)
+
+  # Run legacy
+  set.seed(seed + 1)
+  old <- GenerateCategFuncData_legacy(prob_curves)
+
+  # Run package version (needs matching prob_curves structure)
+  set.seed(seed + 1)
+  new <- generate_categ_func_data(prob_curves)
+
+  # Compare W vs w_mat
+  if (!identical(old$W, new$w_mat)) {
+    stop("VALIDATION FAILED: W (legacy) != w_mat (package). Output categories differ.")
+  }
+
+  # Compare X vs x_array
+  if (!identical(old$X, new$x_array)) {
+    stop("VALIDATION FAILED: X (legacy) != x_array (package). One-hot arrays differ.")
+  }
+
+  cat("validate_generate_categ_func_data: PASSED",
+      "-- W/w_mat and X/x_array are identical across", n_indvs,
+      "individuals x", n_time, "time points.\n")
+  invisible(TRUE)
+}
+# ---- End legacy / validation section ------------------------------------------------
 
 #' Get clustered data
 #'
