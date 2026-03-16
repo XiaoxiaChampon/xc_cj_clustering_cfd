@@ -21,7 +21,7 @@ run_dbscan   <- TRUE
 run_cfda     <- FALSE
 
 temp_folder <- file.path("outputs", "clustersims",
-                         paste0("A_", num_replicas, "_", est_choice, "_hazel"))
+                         paste0("A_", num_replicas, "_", est_choice, "_hazel_table1"))
 if (!dir.exists(temp_folder)) dir.create(temp_folder, recursive = TRUE)
 cat("Output folder:", temp_folder, "\n")
 
