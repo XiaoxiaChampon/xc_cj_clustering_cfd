@@ -65,7 +65,10 @@ if (run_parallel) {
   if (exists("initialized_parallel") && initialized_parallel == TRUE) {
     parallel::stopCluster(cl = my.cluster)
   }
-  n.cores <- 16 #parallel::detectCores() - 1
+  
+  n.cores <- as.numeric(Sys.getenv("LSB_DJOB_NUMPROC"))
+  print(paste("Using", n.cores, "cores"))
+  #n.cores <- 16 # parallel::detectCores() - 1
   my.cluster <- parallel::makeCluster(n.cores, type = "PSOCK")
   doParallel::registerDoParallel(cl = my.cluster)
   cat("Parellel Registered: ", foreach::getDoParRegistered(), " [cores = ", n.cores, "]\n")
@@ -138,7 +141,7 @@ dbscan_cluster <- function(data = scores_K, scale_eps) {
   ######### change to max increase
   distdataelbow <- data.frame(sort(dist))
   distdataelbow$index <- 1:(dim(data)[1])
-  ipoint <- elbow(data = distdataelbow)
+  ipoint <- elbow(data = distdataelbow, plot = FALSE)
   epsoptimal <- (ipoint$sort.dist._selected) * scale_eps
 
   out_dbscan <- dbscan(data, eps = epsoptimal, minPts = minPts)
@@ -297,7 +300,8 @@ cfda_score_function <- function(cfda_data, nCores, timestamps01, basis_num) {
 ClusterSimulation <- function(num_indvs, timeseries_length,
                               scenario, num_replicas, est_choice_list, run_hellinger, temp_folder,
                               run_univfpca = TRUE, run_kmeans = TRUE, run_fadp = TRUE,
-                              run_dbscan = TRUE, run_cfda = TRUE) {
+                              run_dbscan = TRUE, run_cfda = TRUE,
+                              save_curves = TRUE) {
   cat(
     "Cluster Simulation\nNum Indvs:\t", num_indvs,
     "\nTimeseries Len:\t", timeseries_length,
@@ -377,8 +381,10 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
     p3 <- cbind(cluster_f1$p3, cluster_f2$p3, cluster_f3$p3)
     prob_curves <- list(p1 = p1, p2 = p2, p3 = p3)
     ######### 9/11/2023
-    Z_true_curve[[replica_idx]] <- array(c(Z1, Z2), dim = c(timeseries_length, num_indvs, 2))
-    p_true_curve[[replica_idx]] <- array(c(p1, p2, p3), dim = c(timeseries_length, num_indvs, 3))
+    if (save_curves) {
+      Z_true_curve[[replica_idx]] <- array(c(Z1, Z2), dim = c(timeseries_length, num_indvs, 2))
+      p_true_curve[[replica_idx]] <- array(c(p1, p2, p3), dim = c(timeseries_length, num_indvs, 3))
+    }
     ############
 
 
@@ -462,9 +468,11 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
       timeKeeperStart("Xiaoxia")
       categFD_est <- estimate_categ_func_data(est_choice, timestamps01, categ_func_data_list$w_mat)
       ##################### 9/11/2023
-      Z_est_curve[[replica_idx]] <- array(c(categFD_est$z1_est, categFD_est$z2_est), dim = c(timeseries_length, num_indvs, 2))
-      p_est_curve[[replica_idx]] <- array(c(categFD_est$p1_est, categFD_est$p2_est, categFD_est$p3_est), dim = c(timeseries_length, num_indvs, 3))
-      W_cfd[[replica_idx]] <- categ_func_data_list$w_mat
+      if (save_curves) {
+        Z_est_curve[[replica_idx]] <- array(c(categFD_est$z1_est, categFD_est$z2_est), dim = c(timeseries_length, num_indvs, 2))
+        p_est_curve[[replica_idx]] <- array(c(categFD_est$p1_est, categFD_est$p2_est, categFD_est$p3_est), dim = c(timeseries_length, num_indvs, 3))
+        W_cfd[[replica_idx]] <- categ_func_data_list$w_mat
+      }
       ##################### 9/11/2023
       timeKeeperNext()
 
@@ -784,14 +792,24 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
 
   est_values <- list(
     "cluster_table_est" = cluster_table_est,
-    "cluster_table_est_se" = cluster_table_est_se,
-    "Z_est_curves" = Z_est_curve,
-    "p_est_curves" = p_est_curve
+    "cluster_table_est_se" = cluster_table_est_se
   )
+  if (save_curves) {
+    est_values$Z_est_curves <- Z_est_curve
+    est_values$p_est_curves <- p_est_curve
+  }
 
   if (run_hellinger) {
     est_values$mse <- mse_sim
     est_values$hellinger <- hellinger_sim
+  }
+
+  # Per-replica data for batch combining
+  est_values$est_dbscan_ari_reps <- est_dbscan_ari
+  est_values$est_dbscan_ri_reps  <- est_dbscan_ri
+  if (run_hellinger) {
+    est_values$rmse_reps      <- rmse
+    est_values$hellinger_reps <- hellinger
   }
 
   save(est_values, file = file.path(temp_folder, paste("ClusterSim_", num_indvs, "_", timeseries_length, "_",

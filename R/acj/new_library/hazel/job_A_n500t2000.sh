@@ -1,9 +1,9 @@
 #!/bin/bash
-#BSUB -J cj_A_n500
+#BSUB -J cj_A_n500[1-10]
 #BSUB -n 32
 #BSUB -W 6:00
-#BSUB -o logs/out.%J
-#BSUB -e logs/err.%J
+#BSUB -o logs/out.%J.%I
+#BSUB -e logs/err.%J.%I
 
 module load conda
 source ~/.bashrc

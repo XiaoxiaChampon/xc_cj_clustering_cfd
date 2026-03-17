@@ -3,7 +3,7 @@
 # Cluster fractions:  50% / 30% / 20%
 # mu_2 (setting 1):   -0.5 + exp(2t)  [closer means, harder separation]
 # Method:             catFDA-dbscan only
-# Replicas:           100
+# Replicas:            10
 # ============================================================
 
 # setwd("D:/PROJECTS/PAPERS/jasa_paper/xc_cj_clustering_cfd")
@@ -12,7 +12,7 @@ source("catfda_cluster_lib_hazel.R")
 set.seed(123)
 
 scenario     <- "B"
-num_replicas <- 100
+num_replicas <- 10
 est_choice   <- "multinomial"
 
 run_univfpca <- TRUE
@@ -31,11 +31,12 @@ start_time <- Sys.time()
 n100t2000 <- ClusterSimulation(
   100, 2000, scenario, num_replicas, est_choice,
   run_hellinger = FALSE, temp_folder,
-  run_univfpca, run_kmeans, run_fadp, run_dbscan, run_cfda
+  run_univfpca, run_kmeans, run_fadp, run_dbscan, run_cfda,
+  save_curves = FALSE
 )
 
 end_time <- Sys.time()
-print("run_hazel_B_n100t2000.R completed")
+print("run_hazel_table2_B_n100t2000.R completed")
 cat("\nTotal time:\n")
 print(end_time - start_time)
 flush(stdout())
