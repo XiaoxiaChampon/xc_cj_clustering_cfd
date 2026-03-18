@@ -2,7 +2,7 @@
 # Compare RI / ARI clustering results: old code vs new code
 # Loads existing .RData outputs and prints tables side by side.
 # ============================================================
-setwd("D:/PROJECTS/PAPERS/jasa_paper/xc_cj_clustering_cfd")
+# setwd("D:/PROJECTS/PAPERS/jasa_paper/xc_cj_clustering_cfd")
 
 scenario     <- "A"
 num_replicas <- 2
