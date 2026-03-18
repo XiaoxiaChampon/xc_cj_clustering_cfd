@@ -32,8 +32,8 @@ library(tidyverse)
 # For: set_names (used in new_order.R functions)
 library(rlang)
 
-# Load the our clustering library
-devtools::load_all("D:/PROJECTS/PAPERS/jasa_paper/catfda")
+# catfda package (installed)
+library(catfda)
 
 # Source required functions
 source("R/acj/trapzfnum_function.R")

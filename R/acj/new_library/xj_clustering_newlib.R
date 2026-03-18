@@ -36,15 +36,11 @@ library(tidyverse)
 # For: set_names (used in new_order.R functions)
 library(rlang)
 
-# Load the improved catfda package from root
-devtools::load_all("d:/PROJECTS/PAPERS/jasa_paper/catfda")
+# catfda package (installed)
+library(catfda)
 
 # Source trapz helper functions (used inside parallel loops via .export)
 source("R/acj/trapzfnum_function.R")
-
-# Source development files for ClusterSimulation and related functions
-#source("R/XCATFDADEV/helper.R")
-#source("R/XCATFDADEV/catfda_main.R")
 
 # ---- For: parallelization ----
 # For: foreach loop
