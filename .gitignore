@@ -48,5 +48,38 @@ docs/
 # translation temp files
 po/*~
 
+# Simulation outputs (data files, too large for git)
+outputs/
+R/acj/new_library/outputs/
+
+# Backup files
+*.bak
+
+# Log and scratch output files
+*.log
+run_log.txt
+debug_output.txt
+R/acj/new_library/output.txt
+R/acj/new_library/output2.txt
+
+# R plot artifacts
+Rplots.pdf
+R/acj/new_library/Rplots.pdf
+
+# Profiling artifacts
+profvis.html
+
+# Personal scratch / in-progress files (not for repo)
+R/acj/Twitter_clickstream_analysis.R
+R/acj/compare_binomial_estimator.R
+R/acj/mydocs.md
+R/acj/xj_clustering_testvalues.R
+R/acj/twitter_analysis_run.log
+R/acj/new_library/acj_clustering_newlib_hazel_settingA.R
+R/acj/new_library/example_clickclust_usage.R
+R/acj/new_library/hazel_binomial/inspect_outlier_reps.R
+R/acj/new_library/hazel_binomial/investigate_z2.R
+R/acj/new_library/hazel_multinomial/investigate_z2.R
+
 # RStudio Connect folder
 rsconnect/
