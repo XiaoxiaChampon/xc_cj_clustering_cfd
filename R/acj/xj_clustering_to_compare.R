@@ -1172,8 +1172,8 @@ PsiFunc <- function(klen, timestamps01)
 set.seed(123)
 
 scenario = "A"
-num_replicas = 2
-est_choice = "multinomial"
+num_replicas = 13
+est_choice = "binomial"
 some_identifier = "to_compare_old_code"
 temp_folder <- file.path("outputs", "clustersims", paste(scenario, "_", num_replicas, "_", est_choice, "_", some_identifier, sep=""))
 # Empty the directory if it exists
@@ -1183,8 +1183,8 @@ if(dir.exists(temp_folder)){
 dir.create(temp_folder)
 print(temp_folder)
 n100t300C <- ClusterSimulation(100,300,scenario,num_replicas,est_choice,TRUE,temp_folder)
-n100t750C <- ClusterSimulation(100,750,scenario,num_replicas,est_choice,TRUE,temp_folder)
-n100t2000C <- ClusterSimulation(100,2000,scenario,num_replicas,est_choice,TRUE,temp_folder)
+# n100t750C <- ClusterSimulation(100,750,scenario,num_replicas,est_choice,TRUE,temp_folder)  # commented for quick test
+# n100t2000C <- ClusterSimulation(100,2000,scenario,num_replicas,est_choice,TRUE,temp_folder)  # commented for quick test
 
 
 if(run_parallel)

@@ -1,4 +1,4 @@
-setwd("D:/PROJECTS/PAPERS/jasa_paper/xc_cj_clustering_cfd")
+# setwd("D:/PROJECTS/PAPERS/jasa_paper/xc_cj_clustering_cfd")
 
 cat("\n===== OLD (inline code) =====\n")
 identifier_str <- "to_compare_old_code"

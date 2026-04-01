@@ -1,10 +1,10 @@
 #!/bin/bash
-#BSUB -J cj_bin_A300
+#BSUB -J cj_bin_A300[1-5]
 #BSUB -n 64
 #BSUB -R "span[hosts=1]"
 #BSUB -W 2:00
-#BSUB -o logs/out.%J
-#BSUB -e logs/err.%J
+#BSUB -o logs/out.%J.%I
+#BSUB -e logs/err.%J.%I
 
 module load conda
 source ~/.bashrc

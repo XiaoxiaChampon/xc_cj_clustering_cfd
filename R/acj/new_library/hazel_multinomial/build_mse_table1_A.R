@@ -56,11 +56,11 @@ mse_table <- do.call(rbind, lapply(1:3, function(cluster_col) {
   do.call(rbind, lapply(results, function(r) mse_row(r, cluster_col)))
 }))
 
-rownames(mse_table) <- as.vector(outer(
-  paste0("s", 1:3, "n", num_indvs),
-  paste0("t", t_lengths),
-  paste0
-))
+rownames(mse_table) <- paste0(
+  rep(paste0("s", 1:3), each = length(t_lengths)),
+  "_t",
+  rep(t_lengths, times = 3)
+)
 colnames(mse_table) <- c("z1", "z2", "p1", "p2", "p3")
 
 ta <- t(mse_table)

@@ -66,9 +66,12 @@ if (run_parallel) {
     parallel::stopCluster(cl = my.cluster)
   }
   
-  n.cores <- as.numeric(Sys.getenv("LSB_DJOB_NUMPROC"))
+  n.cores <- suppressWarnings(as.numeric(Sys.getenv("LSB_DJOB_NUMPROC")))
+  if (is.na(n.cores)) {
+    detected <- parallel::detectCores()
+    n.cores <- if (!is.na(detected) && detected > 1L) detected - 1L else 1L
+  }
   print(paste("Using", n.cores, "cores"))
-  #n.cores <- 16 # parallel::detectCores() - 1
   my.cluster <- parallel::makeCluster(n.cores, type = "PSOCK")
   doParallel::registerDoParallel(cl = my.cluster)
   cat("Parellel Registered: ", foreach::getDoParRegistered(), " [cores = ", n.cores, "]\n")
@@ -371,11 +374,15 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
     cluster_f2 <- GenerateClusterData(2, scenario, 3, cluster_allocation[2], timeseries_length)
     cluster_f3 <- GenerateClusterData(3, scenario, 3, cluster_allocation[3], timeseries_length)
 
-    # Recover the latent Gaussian process --> is this always 2 ???
+    # Z1, Z2: the two latent Gaussian processes. Always exactly 2 because the
+    # multinomial logit model with 3 categories requires K-1=2 latent processes
+    # (category 3 is the reference with implicit log-odds = 0).
     Z1 <- cbind(cluster_f1$Z1, cluster_f2$Z1, cluster_f3$Z1)
     Z2 <- cbind(cluster_f1$Z2, cluster_f2$Z2, cluster_f3$Z2)
 
-    # Recover the true probability curves --> could there be more than 3 ???
+    # p1, p2, p3: true category probability curves. Always 3 to match the
+    # 3-category simulation setup: p1=exp(Z1)/d, p2=exp(Z2)/d, p3=1/d
+    # where d = 1+exp(Z1)+exp(Z2).
     p1 <- cbind(cluster_f1$p1, cluster_f2$p1, cluster_f3$p1)
     p2 <- cbind(cluster_f1$p2, cluster_f2$p2, cluster_f3$p2)
     p3 <- cbind(cluster_f1$p3, cluster_f2$p3, cluster_f3$p3)
@@ -395,13 +402,16 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
 
     categ_func_data_list <- generate_categ_func_data(prob_curves)
 
-    # what is Q vals ? better name???
-    Q_vals <- unique(c(categ_func_data_list$w_mat))
-    if (is.numeric(Q_vals)) {
-      Q_vals <- sort(Q_vals)
+    # category_labels: the sorted set of distinct category values present in the
+    # data (e.g. {1, 2, 3}). Sorted so one-hot encoding indices are consistent.
+    category_labels <- unique(c(categ_func_data_list$w_mat))
+    if (is.numeric(category_labels)) {
+      category_labels <- sort(category_labels)
     }
 
-    # I need to know what this loop is meant to do !??? maybe there is a better way
+    # Data quality check: for each individual, verify their categorical time
+    # series has all categories present and each appears often enough for reliable
+    # estimation. If not, regenerate just that individual (within their cluster).
     for (indv in 1:num_indvs)
     {
       if (indv %in% 1:cluster_allocation[1]) {
@@ -414,22 +424,19 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
         setting_choice <- 3
       }
 
-      # better names for the following variables ???
-      # 1. check weather one category only appears 1 time and is it in the end of the timeseries
-      # 2. OR is it appearing only one time in the begining
-      # 3. OR if the category is less thant Q total category
-      # In general, one category only occurs 2 times
-      # If timepoints=300, one category only occurs less than 4 times 3/300=0.01
-      # If timepoints=750, one category only occurs less than 6 times 5/750=0.0067
-      tolcat <- table(categ_func_data_list$w_mat[, indv])
-      catorder <- order(tolcat, decreasing = TRUE)
-      numcat <- length(catorder)
-      refcat <- catorder[numcat]
+      # cat_counts: frequency table of each category for this individual.
+      # n_observed_cats: number of distinct categories actually seen.
+      # Regeneration thresholds ensure every category is observed enough times
+      # for robust estimation (roughly >=1.3% of time points for each category):
+      #   t=300  -> min 4 occurrences per category
+      #   t=750  -> min 10 occurrences per category
+      cat_counts <- table(categ_func_data_list$w_mat[, indv])
+      n_observed_cats <- length(cat_counts)
       count_iter <- 0
       while (count_iter < 100 &&
-        ((numcat < length(Q_vals)) ||
-          (timeseries_length == 300 && min(as.numeric(tolcat)) < 4) ||
-          (timeseries_length == 750 && min(as.numeric(tolcat)) < 10)
+        ((n_observed_cats < length(category_labels)) ||
+          (timeseries_length == 300 && min(as.numeric(cat_counts)) < 4) ||
+          (timeseries_length == 750 && min(as.numeric(cat_counts)) < 10)
         )
       ) {
         count_iter <- count_iter + 1
@@ -439,21 +446,20 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
         new_prob_curves <- list(p1 = new_cluster_data$p1, p2 = new_cluster_data$p2, p3 = new_cluster_data$p3)
         new_categ_func_data_list <- generate_categ_func_data(new_prob_curves)
 
-        # what is this 3 ?? arbitrarily chosen?
+        # GenerateClusterData produces 5 candidate individuals; take the 3rd
+        # (middle candidate) to avoid boundary effects from the first/last draws.
         categ_func_data_list$w_mat[, indv] <- new_categ_func_data_list$w_mat[, 3]
-        Z1[, indv] <- new_cluster_data$Z1[, 3] # latent curves Z1 and Z2
+        Z1[, indv] <- new_cluster_data$Z1[, 3]
         categ_func_data_list$x_array[indv, , ] <- 0
         Z2[, indv] <- new_cluster_data$Z2[, 3]
 
         for (this_time in 1:timeseries_length)
         {
-          categ_func_data_list$x_array[indv, this_time, which(Q_vals == categ_func_data_list$w_mat[, indv][this_time])] <- 1
+          categ_func_data_list$x_array[indv, this_time, which(category_labels == categ_func_data_list$w_mat[, indv][this_time])] <- 1
         }
 
-        tolcat <- table(categ_func_data_list$w_mat[, indv])
-        catorder <- order(tolcat, decreasing = TRUE)
-        numcat <- length(catorder)
-        refcat <- catorder[numcat]
+        cat_counts <- table(categ_func_data_list$w_mat[, indv])
+        n_observed_cats <- length(cat_counts)
       } # end while
       total_regens <- total_regens + count_iter
     } # end for(indv in 1:num_indvs)
@@ -577,7 +583,7 @@ ClusterSimulation <- function(num_indvs, timeseries_length,
     hellinger_sim <- apply(hellinger, c(2, 3), mean)
   }
 
-  ### Code could be simplified into a loop???
+  # Evaluate clustering accuracy (RI, ARI, CPN) for each method across replicas.
   ### truth
   # dbscan
   if (run_dbscan) {

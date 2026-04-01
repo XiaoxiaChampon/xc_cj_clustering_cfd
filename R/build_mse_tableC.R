@@ -9,15 +9,25 @@
 #   cols  : z1, z2, p1, p2, p3
 
 # ---- Parameters (can be pre-set before sourcing to override defaults) ----
-if (!exists("num_indvs"))        num_indvs        <- 100
-if (!exists("scenario"))         scenario         <- "A"
-if (!exists("num_replicas"))     num_replicas     <- 2
-if (!exists("est_choice"))       est_choice       <- "multinomial"
-if (!exists("identifier_str"))   identifier_str   <- "testvalues_build"
-if (!exists("data_folder_root")) data_folder_root <- "outputs/clustersims/"
-if (!exists("suffix"))           suffix           <- "TRUE.RData"
-sub_folder <- paste(scenario, num_replicas, est_choice, identifier_str, sep="_")
-data_folder <- file.path(data_folder_root, sub_folder)
+#
+# Option A – point directly at a folder of your choice:
+#   data_folder <- "D:/PROJECTS/PAPERS/jasa_paper/xc_cj_clustering_cfd/outputs/SettingA"
+#
+# Option B – leave data_folder unset and it is constructed as:
+#   file.path(data_folder_root, paste(scenario, num_replicas, est_choice, identifier_str, sep="_"))
+#
+if (!exists("num_indvs"))    num_indvs    <- 1000
+if (!exists("scenario"))     scenario     <- "A"
+if (!exists("num_replicas")) num_replicas <- 100
+if (!exists("est_choice"))   est_choice   <- "multinomial"
+if (!exists("suffix"))       suffix       <- "FALSE_neworder.RData"
+
+if (!exists("data_folder")) {
+  if (!exists("identifier_str"))   identifier_str   <- "testvalues_build"
+  if (!exists("data_folder_root")) data_folder_root <- "outputs/clustersims/"
+  sub_folder  <- paste(scenario, num_replicas, est_choice, identifier_str, sep = "_")
+  data_folder <- file.path(data_folder_root, sub_folder)
+}
 # --------------------
 
 t_lengths <- c(300, 750, 2000)
@@ -51,11 +61,11 @@ mse_table <- do.call(rbind, lapply(1:3, function(cluster_col) {
   do.call(rbind, lapply(results, function(r) mse_row(r, cluster_col)))
 }))
 
-rownames(mse_table) <- as.vector(outer(
-  paste0("s", 1:3, "n", num_indvs),
-  paste0("t", t_lengths),
-  paste0
-))
+rownames(mse_table) <- paste0(
+  rep(paste0("s", 1:3), each = length(t_lengths)),
+  "_t",
+  rep(t_lengths, times = 3)
+)
 colnames(mse_table) <- c("z1", "z2", "p1", "p2", "p3")
 
 #print(mse_table)
