@@ -1,0 +1,68 @@
+{
+  // R Language Settings
+  "r.lsp.enabled": true,
+  "r.lsp.debug": false,
+  "r.bracketedPaste": true,
+  "r.sessionWatcher": true,
+  "r.rpath.windows": "C:\\Program Files\\R\\R-4.4.1\\bin\\R.exe",
+  "r.rterm.windows": "C:\\Program Files\\R\\R-4.4.1\\bin\\R.exe",
+  // R Linting with lintr
+  "r.lsp.diagnostics": true,
+  "r.rterm.option": [],
+  // Editor Settings for R
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "editor.detectIndentation": false,
+  "editor.rulers": [
+    80
+  ],
+  "editor.wordWrap": "wordWrapColumn",
+  "editor.wordWrapColumn": 80,
+  // File associations
+  "files.associations": {
+    "*.R": "r",
+    "*.r": "r",
+    "*.Rmd": "rmd",
+    "*.rmd": "rmd"
+  },
+  // Auto-formatting on save
+  "editor.formatOnSave": true,
+  "editor.formatOnType": true,
+  // Whitespace settings
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "files.trimFinalNewlines": true,
+  // R-specific editor settings
+  "[r]": {
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true,
+    "editor.wordWrap": "wordWrapColumn",
+    "editor.wordWrapColumn": 80,
+    "editor.rulers": [
+      80
+    ],
+    "editor.formatOnSave": true
+  },
+  "[rmd]": {
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true,
+    "editor.wordWrap": "wordWrapColumn",
+    "editor.wordWrapColumn": 80,
+    "editor.rulers": [
+      80
+    ]
+  },
+  // Exclude R-specific files from search
+  "search.exclude": {
+    ".Rhistory": true,
+    ".RData": true,
+    ".Rproj.user": true,
+    "*.Rcheck": true
+  },
+  // File watching exclusions
+  "files.watcherExclude": {
+    ".Rproj.user/**": true,
+    ".Rhistory": true,
+    ".RData": true
+  }
+}
