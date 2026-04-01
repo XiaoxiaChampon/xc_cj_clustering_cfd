@@ -77,9 +77,9 @@ R/acj/xj_clustering_testvalues.R
 R/acj/twitter_analysis_run.log
 R/acj/new_library/acj_clustering_newlib_hazel_settingA.R
 R/acj/new_library/example_clickclust_usage.R
-R/acj/new_library/hazel_binomial/inspect_outlier_reps.R
-R/acj/new_library/hazel_binomial/investigate_z2.R
-R/acj/new_library/hazel_multinomial/investigate_z2.R
+hpc/binomial/inspect_outlier_reps.R
+hpc/binomial/investigate_z2.R
+hpc/multinomial/investigate_z2.R
 
 # RStudio Connect folder
 rsconnect/
