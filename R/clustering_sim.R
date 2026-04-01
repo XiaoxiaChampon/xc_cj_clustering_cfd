@@ -274,18 +274,25 @@ estimate_categFD <- function(X=NULL, W=NULL, tt, basis_size=25, method="ML", sim
       x2<- X[i,,2]
       x3<- X[i,,3]
       
+      
       # fit the Binorm model
       basis_size_rev<-max(min( round( min(sum(x1), sum(1-x1))/2), basis_size ), 5)
+      # fit_binom<-gam(x1~s(tt, bs = "cr", m=2, k = basis_size_rev),
+      #                family=binomial(link="probit"), method = method,control=list(maxit = 500,mgcv.tol=1e-4,epsilon = 1e-04),optimizer=c("outer","bfgs"))
       fit_binom<-gam(x1~s(tt, bs = "cr", m=2, k = basis_size_rev),
-                     family=binomial(link="probit"), method = method,control=list(maxit = 500,mgcv.tol=1e-4,epsilon = 1e-04),optimizer=c("outer","bfgs"))
+                     family="binomial", method = method,control=list(maxit = 500,mgcv.tol=1e-4,epsilon = 1e-04),optimizer=c("outer","bfgs"))
+      p1 <- fit_binom$fitted.values
       p1 <- fit_binom$fitted.values
       p1_linpred <- fit_binom$linear.predictors
       
       # basis_size=25
       # method="ML"
       basis_size_rev<-max(min(round(  min(sum(x2), sum(1-x2))/2), basis_size ), 5)
+      # fit_binom<- gam(x2~s(tt, bs = "cr", m=2, k = basis_size_rev),
+      #                 family=binomial(link="probit"), method = method,control=list(maxit = 500,mgcv.tol=1e-4,epsilon = 1e-04),optimizer=c("outer","bfgs"))
+      # 
       fit_binom<- gam(x2~s(tt, bs = "cr", m=2, k = basis_size_rev),
-                      family=binomial(link="probit"), method = method,control=list(maxit = 500,mgcv.tol=1e-4,epsilon = 1e-04),optimizer=c("outer","bfgs"))
+                      family="binomial", method = method,control=list(maxit = 500,mgcv.tol=1e-4,epsilon = 1e-04),optimizer=c("outer","bfgs"))
       # 
       #  #
       # 
@@ -302,8 +309,11 @@ estimate_categFD <- function(X=NULL, W=NULL, tt, basis_size=25, method="ML", sim
       #  #
       #  #
       basis_size_rev<-max(min(round( min(sum(x3), sum(1-x3))/2), basis_size ), 5)
+      # fit_binom <- gam(x3~s(tt, bs = "cr", m=2, k = basis_size_rev),
+      #                  family=binomial(link="probit"), method = method,control=list(maxit = 500,mgcv.tol=1e-4,epsilon = 1e-04),optimizer=c("outer","bfgs"))
+      # 
       fit_binom <- gam(x3~s(tt, bs = "cr", m=2, k = basis_size_rev),
-                       family=binomial(link="probit"), method = method,control=list(maxit = 500,mgcv.tol=1e-4,epsilon = 1e-04),optimizer=c("outer","bfgs"))
+                       family="binomial", method = method,control=list(maxit = 500,mgcv.tol=1e-4,epsilon = 1e-04),optimizer=c("outer","bfgs"))
       p3 <- fit_binom$fitted.values
       p3_linpred <- fit_binom$linear.predictors
       
@@ -410,32 +420,19 @@ estimate_categFD <- function(X=NULL, W=NULL, tt, basis_size=25, method="ML", sim
 }
 
 
-estimate_categFD_W <- function( W=NULL, tt, basis_size=25, method="ML", sim=TRUE){
+estimate_categFD_W <- function( W, tt, basis_size=25, method="ML"){
   # X=X
   # basis_size<-25
   # method="ML"
   # sim=TRUE
   # 
-  if(is.null(X)) sim<-FALSE
   
-  if(!sim){
     n<- ncol(W)
     m <-nrow(W)
     Q<- length(unique(c(W)))
     Q_vals <- unique(c(W))
     if(is.numeric(Q_vals)) Q_vals<- sort(Q_vals)
     
-    X<- array(0, c(n,m,Q))
-    for(i in 1:n){
-      w1<-W[,i]
-      for(j in 1:m) X[i,j, which(Q_vals==w1[j])] <- 1
-    }
-  }
-  
-  n<- dim(X)[1]
-  m<- dim(X)[2]
-  Q <- dim(X)[3]
-  
   Z<-NULL
   p<-array(0, c(n, m, 3))
   ##########################
@@ -444,7 +441,7 @@ estimate_categFD_W <- function( W=NULL, tt, basis_size=25, method="ML", sim=TRUE
   #can parallel
   #############################
   #############################
-  method="ML"
+
   for (i in 1:n){
       print(i)
       fit_binom<-gam(list(W[,i]-1~s(tt)+s(tt),~s(tt)+s(tt)),family=multinom(K=2),method = method,
@@ -472,7 +469,7 @@ estimate_categFD_W <- function( W=NULL, tt, basis_size=25, method="ML", sim=TRUE
 
 
 ##################
-estimate_categFD_W(W, tt, basis_size=25, method="ML", sim=FALSE)
+#estimate_categFD_W(W, tt, basis_size=25, method="ML", sim=FALSE)
 
 
 
@@ -535,6 +532,7 @@ estimate_categFD_W(W, tt, basis_size=25, method="ML", sim=FALSE)
 # list with estimated PHI (m by K) with function norm 1
 #           projection of data onto PHI (called scores - nby K matrix) 
 #
+
 
 
 extract_scores_UNIVFPCA <- function (mZ1,mZ2, tt=tt , PVE=0.95){
@@ -655,6 +653,69 @@ evaluate_cluster <- function(true_cluster, new_cluster,noise){
   return(list(ri=ri, ari=ari,cpn=cpn))
 }
 
+
+
+#Function to find the L2 distance between two latent curves
+#Input: yy- 1D vector (true curve)
+#       yy2-1D vector (estimated curve)
+#Output: scalar-L2 distance
+trapzfnum <- function(yy,yy2){
+  
+  st=0.0001
+  et=1
+  x=seq(st,et,length=5000)
+  xx=seq(st,et,length=length(yy))
+  y1 <- cubicspline(xx, yy,x)
+  y2 <- cubicspline(xx, yy2,x)
+  out=sqrt(trapz(x, (y1-y2)^2) )
+  out
+  
+}
+
+#Function to find the Hellinger distance between two probability curves
+#Input: yy- 1D vector (true curve)
+#       yy2-1D vector (estimated curve)
+#Output: scalar-Hellinger distance
+trapzfnump <- function(yy,yy2){
+  st=0.0001
+  et=1
+  x=seq(st,et,length=5000)
+  xx=seq(st,et,length=length(yy))
+  y1 <- cubicspline(xx, yy,x)
+  y1[y1<0]=0
+  y2 <- cubicspline(xx, yy2,x)
+  y2[y2<0]=0
+  out=sqrt(trapz(x, (sqrt(y1)-sqrt(y2))^2) )
+  out
+  
+}
+#Function to use trapzfnum function and find L2 distance for 2D array, n of them
+mse_bw_matrix=function(truecurve,estcurve){
+  n=dim(truecurve)[2]
+  datapoints=dim(truecurve)[1]
+  mseall=c(0)
+  ######could probably use apply function here it's also subject level
+  for (i in 1:n){
+    mseall[i]=trapzfnum(truecurve[,i],estcurve[,i])
+    
+  }
+  mseall
+  
+}
+
+#Function to use trapzfnump function and find Hellinger distance for 2D array, n of them
+mse_bw_matrixp=function(truecurve,estcurve){
+  n=dim(truecurve)[2]
+  datapoints= dim(truecurve)[1]
+  mseall=c(0)
+  ######could probably use apply function here it's also subject level
+  for (i in 1:n){
+    mseall[i]=trapzfnump(truecurve[,i],estcurve[,i])/sqrt(2)
+    
+    
+  }
+  mseall
+}
 #############################################################################
 #############################################################################
 # Alternative methods NOT USED in the paper to perform multivariate FPCA
@@ -738,11 +799,11 @@ library(FADPclust)
 #distributed to different
 # simulation
 cluster_simulation=function(n,m,scenario,mc_sims,wood_multi){
-    n=100
-    m=300
-    scenario="B"
-    mc_sims=3
-   wood_multi="N"
+   #  n=100
+   #  m=2000
+   #  scenario="C"
+   #  mc_sims=2
+   # wood_multi="N"
   
   # set main factors
  # n<-100 # no users
@@ -829,7 +890,6 @@ cluster_simulation=function(n,m,scenario,mc_sims,wood_multi){
     X<- out$X  
     W<- out$W
     
-    
     #######add 7/25/2023 while loop to update cluster 3
     ##################################################
     Q_vals <- unique(c(W))
@@ -860,9 +920,9 @@ cluster_simulation=function(n,m,scenario,mc_sims,wood_multi){
       refcat = catorder[numcat]
       Wnew = matrix(0, nrow = m, ncol = 5)
       count_iter = 0
-      while ((min(as.numeric(tolcat)) == 1 && W[, clstr_2_idx][m] == refcat && count_iter < 100)
-             || (min(as.numeric(tolcat)) == 1 && W[, clstr_2_idx][1] == refcat && count_iter < 100)
-             || (length(unique(W[,clstr_2_idx]))<length(unique(c(W)))&& count_iter < 100))
+      while ((min(as.numeric(tolcat)) == 1 && W[, clstr_2_idx][m] == refcat && count_iter < 150)
+             || (min(as.numeric(tolcat)) == 1 && W[, clstr_2_idx][1] == refcat && count_iter < 180)
+             || (length(unique(W[,clstr_2_idx]))<length(unique(c(W)))&& count_iter < 200))
       {
         count_iter = count_iter + 1
         print(cat("count_iter: ", count_iter))
@@ -912,13 +972,13 @@ cluster_simulation=function(n,m,scenario,mc_sims,wood_multi){
     
     
     ###########
-    
+   
     #ESTIMATION
     if(wood_multi=="N"){
       categFD_est <- estimate_categFD(X, tt=tt)
     }
     
-    #wood_multi="Y"
+   # wood_multi="Y"
     if(wood_multi=="Y"){
       categFD_est <- estimate_categFD_W(W, tt=tt)
     }
@@ -933,7 +993,15 @@ cluster_simulation=function(n,m,scenario,mc_sims,wood_multi){
     p2_est<-categFD_est$p2_est
     p3_est<-categFD_est$p3_est
     
-    
+    # for (i in 1:n1){
+    #   plot(seq(0.0001,1,length=m),Z1_est[,i],main=paste0("subject ",i),col="blue")
+    #   lines(seq(0.0001,1,length=m),Z1[,i],col="red")
+    #   legend("topleft", legend=c("Est", "Truth"),
+    #          col=c("blue", "red"), lty=1:2, cex=0.8)
+    #   
+    # }
+   
+
     # ########plot true and est z1, z2
    #  par(mfrow=c(2,2))
    # #matplot(seq(0.0001,1,length=m),Z1[,1:n1],col="red",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=1, lwd=3,xlim=c(0,1),ylim=c(-8,8))
@@ -947,9 +1015,10 @@ cluster_simulation=function(n,m,scenario,mc_sims,wood_multi){
    # matlines(seq(0.0001,1,length=m),Z2[,(n1+n2+1):n],col="blue",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=5, lwd=3)
    # 
    #  # #plot first truelatent curves p_2 by clusters
-   #  matplot(seq(0.0001,1,length=m),Z1_est[,1:n1],col="red",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=1, lwd=3,ylim=c(-8,8))
+   #  matplot(seq(0.0001,1,length=m),Z1_est[,1:n1],col="red",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=1, lwd=3,ylim=c(-40,15))
    #  matlines(seq(0.0001,1,length=m),Z1_est[,(n1+1):(n1+n2)],col="green",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=3, lwd=3)
    #  matlines(seq(0.0001,1,length=m),Z1_est[,(n1+n2+1):n],col="blue",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=5, lwd=3)
+   # 
    # 
    # 
    #  #plot first truelatent curves p_2 by clusters
@@ -957,42 +1026,39 @@ cluster_simulation=function(n,m,scenario,mc_sims,wood_multi){
    #  matlines(seq(0.0001,1,length=m),Z2_est[,(n1+1):(n1+n2)],col="green",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=3, lwd=3)
    #  matlines(seq(0.0001,1,length=m),Z2_est[,(n1+n2+1):n],col="blue",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=5, lwd=3)
 
-    # # 
-    # par(mfrow=c(2,3))
-    # matplot(seq(0.0001,1,length=m),p1[,1:n1],col="red",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=1, lwd=3,xlim=c(0,1),ylim=c(0,1))
-    # matlines(seq(0.0001,1,length=m),p1[,(n1+1):(n1+n2)],col="green",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=3, lwd=3)
-    # matlines(seq(0.0001,1,length=m),p1[,(n1+n2+1):n],col="blue",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=5, lwd=3)
-    # 
-    # matplot(seq(0.0001,1,length=m),p2[,1:n1],col="red",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=1, lwd=3,xlim=c(0,1),ylim=c(0,1))
-    # matlines(seq(0.0001,1,length=m),p2[,(n1+1):(n1+n2)],col="green",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=3, lwd=3)
-    # matlines(seq(0.0001,1,length=m),p2[,(n1+n2+1):n],col="blue",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=5, lwd=3)
-    # 
-    # 
-    # matplot(seq(0.0001,1,length=m),p3[,1:n1],col="red",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=1, lwd=3,xlim=c(0,1),ylim=c(0,1))
-    # matlines(seq(0.0001,1,length=m),p3[,(n1+1):(n1+n2)],col="green",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=3, lwd=3)
-    # matlines(seq(0.0001,1,length=m),p3[,(n1+n2+1):n],col="blue",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=5, lwd=3)
-    # 
-    # #plot first truelatent curves p_2 by clusters
-    # matplot(seq(0.0001,1,length=m),p1_est[,1:n1],col="red",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=1, lwd=3,ylim=c(0,1))
-    # matlines(seq(0.0001,1,length=m),p1_est[,(n1+1):(n1+n2)],col="green",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=3, lwd=3)
-    # matlines(seq(0.0001,1,length=m),p1_est[,(n1+n2+1):n],col="blue",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=5, lwd=3)
-    # 
-    # 
-    # #plot first truelatent curves p_2 by clusters
-    # matplot(seq(0.0001,1,length=m),p2_est[,1:n1],col="red",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=1, lwd=3,ylim=c(0,1))
-    # matlines(seq(0.0001,1,length=m),p2_est[,(n1+1):(n1+n2)],col="green",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=3, lwd=3)
-    # matlines(seq(0.0001,1,length=m),p2_est[,(n1+n2+1):n],col="blue",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=5, lwd=3)
-    # 
-    # 
-    # matplot(seq(0.0001,1,length=m),p3_est[,1:n1],col="red",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=1, lwd=3,ylim=c(0,1))
-    # matlines(seq(0.0001,1,length=m),p3_est[,(n1+1):(n1+n2)],col="green",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=3, lwd=3)
-    # matlines(seq(0.0001,1,length=m),p3_est[,(n1+n2+1):n],col="blue",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=5, lwd=3)
-    
+   #  # #
+   #  par(mfrow=c(2,3))
+   #  matplot(seq(0.0001,1,length=m),p1[,1:n1],col="red",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=1, lwd=3,xlim=c(0,1),ylim=c(0,1))
+   #  matlines(seq(0.0001,1,length=m),p1[,(n1+1):(n1+n2)],col="green",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=3, lwd=3)
+   #  matlines(seq(0.0001,1,length=m),p1[,(n1+n2+1):n],col="blue",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=5, lwd=3)
+   # 
+   #  matplot(seq(0.0001,1,length=m),p2[,1:n1],col="red",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=1, lwd=3,xlim=c(0,1),ylim=c(0,1))
+   #  matlines(seq(0.0001,1,length=m),p2[,(n1+1):(n1+n2)],col="green",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=3, lwd=3)
+   #  matlines(seq(0.0001,1,length=m),p2[,(n1+n2+1):n],col="blue",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=5, lwd=3)
+   # 
+   # 
+   #  matplot(seq(0.0001,1,length=m),p3[,1:n1],col="red",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=1, lwd=3,xlim=c(0,1),ylim=c(0,1))
+   #  matlines(seq(0.0001,1,length=m),p3[,(n1+1):(n1+n2)],col="green",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=3, lwd=3)
+   #  matlines(seq(0.0001,1,length=m),p3[,(n1+n2+1):n],col="blue",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=5, lwd=3)
+   # 
+   #  #plot first truelatent curves p_2 by clusters
+   #  matplot(seq(0.0001,1,length=m),p1_est[,1:n1],col="red",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=1, lwd=3,ylim=c(0,1))
+   #  matlines(seq(0.0001,1,length=m),p1_est[,(n1+1):(n1+n2)],col="green",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=3, lwd=3)
+   #  matlines(seq(0.0001,1,length=m),p1_est[,(n1+n2+1):n],col="blue",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=5, lwd=3)
+   # 
+   #  #
+   #  # #plot first truelatent curves p_2 by clusters
+   #  matplot(seq(0.0001,1,length=m),p2_est[,1:n1],col="red",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=1, lwd=3,ylim=c(0,1))
+   #  matlines(seq(0.0001,1,length=m),p2_est[,(n1+1):(n1+n2)],col="green",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=3, lwd=3)
+   #  matlines(seq(0.0001,1,length=m),p2_est[,(n1+n2+1):n],col="blue",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=5, lwd=3)
+   # 
+   # 
+   #  matplot(seq(0.0001,1,length=m),p3_est[,1:n1],col="red",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=1, lwd=3,ylim=c(0,1))
+   #  matlines(seq(0.0001,1,length=m),p3_est[,(n1+1):(n1+n2)],col="green",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=3, lwd=3)
+   #  matlines(seq(0.0001,1,length=m),p3_est[,(n1+n2+1):n],col="blue",type = "l",xlab="Time",ylab="value",cex.lab=1.5, cex.axis=2,lty=5, lwd=3)
+
     #####
-    
-    
-    
-    
+
     # expZ1 <- exp(Z1_est)
     # expZ2 <- exp(Z1_est)
     # denom <- 1+ expZ1+  expZ2
@@ -1020,6 +1086,11 @@ cluster_simulation=function(n,m,scenario,mc_sims,wood_multi){
     mfpca_true <-extract_scores_UNIVFPCA(mZ1=Z1, mZ2=Z2,  tt=tt , PVE=0.95)
     #plot(  scores_true$scores[, 1:2])
     mfpca_est <- extract_scores_UNIVFPCA(mZ1=Z1_est, mZ2=Z2_est, tt=tt , PVE=0.95)
+
+    # par(mfrow=c(2,2))
+    # plot( mfpca_true$scores[,1], mfpca_true$scores[,2],main="true scores")
+    # plot( mfpca_est$scores[,1], mfpca_est$scores[,2],main="true scores")
+    
     
     ############
     #plot the differences
@@ -1246,95 +1317,106 @@ cluster_simulation=function(n,m,scenario,mc_sims,wood_multi){
 ##########scenarioA
 #cluster_simulation=function(n,m,scenario,mc_sims)
 n100t300A=cluster_simulation(100,300,"A",2,"Y")
-n100t300Am=cluster_simulation(100,300,"A",10,"N")
 
-n100t750A=cluster_simulation(100,750,"A",20)
-n100t2000A=cluster_simulation(100,2000,"A",20)
+n100t300Am=cluster_simulation(100,300,"A",2,"N")
+ 
 
+n100t300C=cluster_simulation(100,300,"C",2,"Y")
 
-n500t300A=cluster_simulation(500,300,"A",20)
-n500t750A=cluster_simulation(500,750,"A",20)
-n500t2000A=cluster_simulation(500,2000,"A",20)
+n100t300Cm=cluster_simulation(100,300,"C",2,"N")
+ 
 
+n100t2000C=cluster_simulation(100,2000,"C",2,"Y")
 
-n1000t300A=cluster_simulation(1000,300,"A",20)
-n1000t750A=cluster_simulation(1000,750,"A",20)
-n1000t2000A=cluster_simulation(1000,2000,"A",20)
-
-
-true_tableA=rbind(n100t300A$cluster_table_true,n100t750A$cluster_table_true,n100t2000A$cluster_table_true,
-                 n500t300A$cluster_table_true,n500t750A$cluster_table_true,n500t2000A$cluster_table_true,
-                 n1000t300A$cluster_table_true,n1000t750A$cluster_table_true,n1000t2000A$cluster_table_true)
-rownames(true_tableA)=c("n100t300","n100t750","n100t2000",
-                       "n500t300","n500t750","n500t2000",
-                       "n1000t300","n1000t750","n1000t2000")
-
-est_tableA=rbind(n100t300A$cluster_table_est,n100t750A$cluster_table_est,n100t2000A$cluster_table_est,
-                 n500t300A$cluster_table_est,n500t750A$cluster_table_est,n500t2000A$cluster_table_est,
-                 n1000t300A$cluster_table_est,n1000t750A$cluster_table_est,n1000t2000A$cluster_table_est)
-rownames(est_tableA)=c("n100t300","n100t750","n100t2000",
-                       "n500t300","n500t750","n500t2000",
-                       "n1000t300","n1000t750","n1000t2000")
-
-
-est_tableA_se=rbind(n100t300A$cluster_table_est_se,n100t750A$cluster_table_est_se,n100t2000A$cluster_table_est_se,
-                 n500t300A$cluster_table_est_se,n500t750A$cluster_table_est_se,n500t2000A$cluster_table_est_se,
-                 n1000t300A$cluster_table_est_se,n1000t750A$cluster_table_est_se,n1000t2000A$cluster_table_est_se)
-rownames(est_tableA_se)=c("n100t300","n100t750","n100t2000",
-                       "n500t300","n500t750","n500t2000",
-                       "n1000t300","n1000t750","n1000t2000")
-
-save(true_tableA,est_tableA,est_tableA_se,file="A_clustering.RData")
-
-# load("staicu_Anew20_final.RData")
-# library(xtable)
-# xtable(est_tableA)
-
-
-#####################################
-###scenario B
-##########scenarioA
-#cluster_simulation=function(n,m,scenario,mc_sims)
-n100t300B=cluster_simulation(100,300,"B",3,wood_multi="Y")
-n100t300Bm=cluster_simulation(100,300,"B",10,wood_multi="N")
-
-n100t750B=cluster_simulation(100,750,"B",20)
-n100t2000B=cluster_simulation(100,2000,"B",20)
-
-
-n500t300B=cluster_simulation(500,300,"B",20)
-n500t750B=cluster_simulation(500,750,"B",20)
-n500t2000B=cluster_simulation(500,2000,"B",20)
-
-
-n1000t300B=cluster_simulation(1000,300,"B",20)
-n1000t750B=cluster_simulation(1000,750,"B",20)
-n1000t2000B=cluster_simulation(1000,2000,"B",20)
-
-
-true_tableB=rbind(n100t300B$cluster_table_true,n100t750B$cluster_table_true,n100t2000B$cluster_table_true,
-                  n500t300B$cluster_table_true,n500t750B$cluster_table_true,n500t2000B$cluster_table_true,
-                  n1000t300B$cluster_table_true,n1000t750B$cluster_table_true,n1000t2000B$cluster_table_true)
-rownames(true_tableB)=c("n100t300","n100t750","n100t2000",
-                        "n500t300","n500t750","n500t2000",
-                        "n1000t300","n1000t750","n1000t2000")
-
-est_tableB=rbind(n100t300B$cluster_table_est,n100t750B$cluster_table_est,n100t2000B$cluster_table_est,
-                 n500t300B$cluster_table_est,n500t750B$cluster_table_est,n500t2000B$cluster_table_est,
-                 n1000t300B$cluster_table_est,n1000t750B$cluster_table_est,n1000t2000B$cluster_table_est)
-rownames(est_tableB)=c("n100t300","n100t750","n100t2000",
-                       "n500t300","n500t750","n500t2000",
-                       "n1000t300","n1000t750","n1000t2000")
-
-
-est_tableB_se=rbind(n100t300B$cluster_table_est_se,n100t750B$cluster_table_est_se,n100t2000B$cluster_table_est_se,
-                    n500t300B$cluster_table_est_se,n500t750B$cluster_table_est_se,n500t2000B$cluster_table_est_se,
-                    n1000t300B$cluster_table_est_se,n1000t750B$cluster_table_est_se,n1000t2000B$cluster_table_est_se)
-rownames(est_tableB_se)=c("n100t300","n100t750","n100t2000",
-                          "n500t300","n500t750","n500t2000",
-                          "n1000t300","n1000t750","n1000t2000")
-
-save(true_tableB,est_tableB,est_table_se,file="B_clustering.RData")
+n100t2000Cm=cluster_simulation(100,2000,"C",2,"N")
+# 
+# n100t750A=cluster_simulation(100,750,"A",20)
+# n100t2000A=cluster_simulation(100,2000,"A",20)
+# 
+# 
+# n500t300A=cluster_simulation(500,300,"A",20)
+# n500t750A=cluster_simulation(500,750,"A",20)
+# n500t2000A=cluster_simulation(500,2000,"A",20)
+# 
+# 
+# n1000t300A=cluster_simulation(1000,300,"A",20)
+# n1000t750A=cluster_simulation(1000,750,"A",20)
+# n1000t2000A=cluster_simulation(1000,2000,"A",20)
+# 
+# 
+# true_tableA=rbind(n100t300A$cluster_table_true,n100t750A$cluster_table_true,n100t2000A$cluster_table_true,
+#                  n500t300A$cluster_table_true,n500t750A$cluster_table_true,n500t2000A$cluster_table_true,
+#                  n1000t300A$cluster_table_true,n1000t750A$cluster_table_true,n1000t2000A$cluster_table_true)
+# rownames(true_tableA)=c("n100t300","n100t750","n100t2000",
+#                        "n500t300","n500t750","n500t2000",
+#                        "n1000t300","n1000t750","n1000t2000")
+# 
+# est_tableA=rbind(n100t300A$cluster_table_est,n100t750A$cluster_table_est,n100t2000A$cluster_table_est,
+#                  n500t300A$cluster_table_est,n500t750A$cluster_table_est,n500t2000A$cluster_table_est,
+#                  n1000t300A$cluster_table_est,n1000t750A$cluster_table_est,n1000t2000A$cluster_table_est)
+# rownames(est_tableA)=c("n100t300","n100t750","n100t2000",
+#                        "n500t300","n500t750","n500t2000",
+#                        "n1000t300","n1000t750","n1000t2000")
+# 
+# 
+# est_tableA_se=rbind(n100t300A$cluster_table_est_se,n100t750A$cluster_table_est_se,n100t2000A$cluster_table_est_se,
+#                  n500t300A$cluster_table_est_se,n500t750A$cluster_table_est_se,n500t2000A$cluster_table_est_se,
+#                  n1000t300A$cluster_table_est_se,n1000t750A$cluster_table_est_se,n1000t2000A$cluster_table_est_se)
+# rownames(est_tableA_se)=c("n100t300","n100t750","n100t2000",
+#                        "n500t300","n500t750","n500t2000",
+#                        "n1000t300","n1000t750","n1000t2000")
+# 
+# save(true_tableA,est_tableA,est_tableA_se,file="A_clustering.RData")
+# 
+# # load("staicu_Anew20_final.RData")
+# # library(xtable)
+# # xtable(est_tableA)
+# 
+# 
+# #####################################
+# ###scenario B
+# ##########scenarioA
+# #cluster_simulation=function(n,m,scenario,mc_sims)
+# n100t300B=cluster_simulation(100,300,"B",3,wood_multi="Y")
+# n100t300Bm=cluster_simulation(100,300,"B",10,wood_multi="N")
+# 
+# n100t750B=cluster_simulation(100,750,"B",20)
+# n100t2000B=cluster_simulation(100,2000,"B",20)
+# 
+# 
+# n500t300B=cluster_simulation(500,300,"B",20)
+# n500t750B=cluster_simulation(500,750,"B",20)
+# n500t2000B=cluster_simulation(500,2000,"B",20)
+# 
+# 
+# n1000t300B=cluster_simulation(1000,300,"B",20)
+# n1000t750B=cluster_simulation(1000,750,"B",20)
+# n1000t2000B=cluster_simulation(1000,2000,"B",20)
+# 
+# 
+# true_tableB=rbind(n100t300B$cluster_table_true,n100t750B$cluster_table_true,n100t2000B$cluster_table_true,
+#                   n500t300B$cluster_table_true,n500t750B$cluster_table_true,n500t2000B$cluster_table_true,
+#                   n1000t300B$cluster_table_true,n1000t750B$cluster_table_true,n1000t2000B$cluster_table_true)
+# rownames(true_tableB)=c("n100t300","n100t750","n100t2000",
+#                         "n500t300","n500t750","n500t2000",
+#                         "n1000t300","n1000t750","n1000t2000")
+# 
+# est_tableB=rbind(n100t300B$cluster_table_est,n100t750B$cluster_table_est,n100t2000B$cluster_table_est,
+#                  n500t300B$cluster_table_est,n500t750B$cluster_table_est,n500t2000B$cluster_table_est,
+#                  n1000t300B$cluster_table_est,n1000t750B$cluster_table_est,n1000t2000B$cluster_table_est)
+# rownames(est_tableB)=c("n100t300","n100t750","n100t2000",
+#                        "n500t300","n500t750","n500t2000",
+#                        "n1000t300","n1000t750","n1000t2000")
+# 
+# 
+# est_tableB_se=rbind(n100t300B$cluster_table_est_se,n100t750B$cluster_table_est_se,n100t2000B$cluster_table_est_se,
+#                     n500t300B$cluster_table_est_se,n500t750B$cluster_table_est_se,n500t2000B$cluster_table_est_se,
+#                     n1000t300B$cluster_table_est_se,n1000t750B$cluster_table_est_se,n1000t2000B$cluster_table_est_se)
+# rownames(est_tableB_se)=c("n100t300","n100t750","n100t2000",
+#                           "n500t300","n500t750","n500t2000",
+#                           "n1000t300","n1000t750","n1000t2000")
+# 
+# save(true_tableB,est_tableB,est_table_se,file="B_clustering.RData")
 
 # load("staicu_Anew20_final.RData")
 # library(xtable)

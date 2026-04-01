@@ -1,0 +1,378 @@
+<!-- Our input data is W: categorical time series. , and the time vector (both attached- ). -->
+<!-- load("Twitter_Multinomial_W_t_Data.RData") -->
+<!-- W_matrix_final -->
+<!--  timestamps01 -->
+
+<!--  Our goal is to use W to cluster. Our output is the cluster labels for each user. Do table(userlables) and use ggplot to plot the labels for each user. -->
+
+<!-- Look at section 3 from the paper attached. The goal is to: -->
+<!-- (1) use msm to see what's returned, if we can use anything returned to cluster. -->
+<!-- (2) Use ClickClust , clickstream to cluster.  -->
+
+<!-- Categorical Functional Data Analysis. The cfda R Package -->
+
+
+
+```{r}
+load("Twitter_Multinomial_W_t_Data.RData")
+```
+
+
+```{r}
+library(clickstream)
+```
+
+```{r}
+# some random data to test cliskstream
+set.seed(123)
+num_patients <- 10
+num_timestamps <- 25
+test_data <- matrix(sample(1:3, num_patients * num_timestamps, replace = TRUE), 
+                      nrow = num_patients, ncol = num_timestamps)
+print(test_data)
+```
+
+```{r}
+W_data_used_new <- W_data_used[-c(which_columns1,which_columns2),]
+dim(W_data_used_new)
+```
+
+```{r}
+save(W_data_used_new, file = "W_data_used_new.RData")
+```
+
+```{r}
+load("W_data_used_new.RData")
+```
+
+
+```{r}
+
+# Convert Matrix Rows into Clickstream Sequences
+# Combine each row into a string of events
+# sequences <- apply(W_matrix_final, 1, function(row) paste(row, collapse = " "))
+sequences <- apply(W_data_used_new, 1, function(row) paste(row, collapse = " "))
+# sequences <- apply(test_data, 1, function(row) paste(row, collapse = " "))
+# print(sequences[1:5])
+```
+
+```{r}
+# Write sequences to a temporary file as required by clickstream::readClickstreams
+temp_file <- tempfile(fileext = ".cls")
+writeLines(sequences, temp_file)
+
+# Read the Clickstream Data
+clickstream_data <- readClickstreams(temp_file, header = FALSE)
+
+# cluster
+source("time_track_function.R")
+
+center_number <- 2:5
+totss_select <- numeric(4)
+for (i in center_number){
+  clusters <- clusterClickstreams(clickstream_data, order = 0, centers = i)
+   totss_select[i] <- clusters$totss
+  }
+final_center_number <- center_number[which(totss_select== min(totss_select))]
+final_center_number #2
+
+clusters <- clusterClickstreams(clickstream_data, order = 0, centers = final_center_number)
+print(paste("Num clusters:", length(clusters$clusters)))
+
+W_lables <- rep(0,dim(W_data_used_new)[1])
+#for (cltr in clusters$clusters) {
+for (cltr in 1:length(clusters$clusters) ){
+  cat("Cluster:" , cltr,"\n")
+  #print(paste(names(cltr)))
+  cluster_1 <- as.numeric(noquote(names(clusters$clusters[[cltr]])))
+  W_lables[cluster_1] <- cltr
+}
+table(W_lables)
+# W_lables
+#    1    2 
+#   22 3805
+```
+```{r}
+save(clusters, file = "clusterClickstreams_result.RData")
+```
+
+```{r}
+# clusters$centers
+# clusters$states
+# clusters$totss
+# clusters$withinss
+# clusters$tot.withinss
+# clusters$betweenss
+# clusters$order
+```
+
+
+```{r}
+library("ClickClust")
+
+```
+
+```{r}
+ xw <- apply(W_data_used_new, 1, paste, collapse = ",")
+  
+  clickstream_data_new <- as.clickstreams(xw, header = FALSE)
+# convert clickstream data to click cluster compatible data
+clickclust_data <- as.ClickClust(clickstream_data_new)
+
+ best_emclust <- NULL
+  min_bic <- Inf
+  for (kval in 2:5) {
+    emclust <- click.EM(clickclust_data$X, y=clickclust_data$y, K = kval)
+    print(emclust$BIC)
+    if(!is.na(emclust$BIC) && emclust$BIC <= min_bic){
+      best_emclust <- emclust
+      min_bic <- emclust$BIC
+    }
+  }
+  
+  if(is.null(best_emclust)){
+    # browser()
+    best_emclust <- click.EM(clickclust_data$X, y=clickclust_data$y, K = 2)
+    min_bic <- best_emclust$BIC
+  }
+  
+  W_label_clickclust <- best_emclust$id
+
+# show(emclust)
+#W_label_clickclust <- emclust$id
+table(W_label_clickclust)
+# W_label_clickclust
+#    1 
+# 3830 
+
+```
+
+
+```{r}
+clickstreams_test <- c("User1,h,c,c,p,c,h,c,p,p,c,p,p,o",
+               "User2,i,c,i,c,c,c,d",
+               "User3,h,i,c,i,c,p,c,c,p,c,c,i,d",
+               "User4,c,c,p,c,d",
+               "User5,h,c,c,p,p,c,p,p,p,i,p,o",
+               "User6,i,h,c,c,p,p,c,p,c,d")
+cls_test <- as.clickstreams(clickstreams_test, header = TRUE)
+X_test <- as.ClickClust(cls_test)
+```
+
+
+
+```{r}
+table(emclust$id)
+```
+
+
+```{r}
+library(msm)
+# MSM example:
+print(cav[1:10,])
+library(msm)
+ twoway4.q <- rbind(c(-0.5, 0.25, 0, 0.25), c(0.166,-0.498, 0.166, 0.166),
+ c(0, 0.25,-0.5, 0.25), c(0, 0, 0, 0))
+ statetable.msm(state, PTNUM, data=cav)
+ crudeinits.msm(state ~ years, PTNUM, data=cav, qmatrix=twoway4.q)
+ cav.msm <- msm( state ~ years, subject=PTNUM, data = cav,
+ qmatrix = twoway4.q, deathexact = 4,
+ control = list ( trace = 2, REPORT = 1 ) )
+ #cav.msm
+ #individual-level transition intensities
+ individual_intensity <- qmatrix.msm(cav.msm)
+ # pmatrix.msm(cav.msm, t=10)
+ # sojourn.msm(cav.msm)
+```
+```{r}
+pearson.msm(psor.msm, timegroups=2, intervalgroups=2, covgroups=2)
+```
+
+
+```{r}
+cav.msm_new <- msm( state ~ years, subject=PTNUM, data = cav,
+ gen.inits = TRUE, deathexact = 4,
+ control = list ( trace = 2, REPORT = 1 ) )
+```
+
+
+
+```{r}
+library(cluster)
+
+# Simulate a matrix of transition probabilities for individuals
+transitions <- pmatrix.msm(cav.msm, t=dim(W_matrix_final)[2])  # Example: 10 individuals, 3 states
+dist_matrix <- dist(transitions)  # Compute pairwise distances
+
+# Perform hierarchical clustering
+hc <- hclust(dist_matrix, method = "ward.D2")
+plot(hc)
+table(hc$labels)
+```
+```{r}
+library(TraMineR)
+data(biofam)
+## We use only a sample of 300 cases
+set.seed(10)
+biofam <- biofam[sample(nrow(biofam),300),]
+biofam.lab <- c("Parent", "Left", "Married", "Left+Marr",
+                "Child", "Left+Child", "Left+Marr+Child", "Divorced")
+biofam.seq <- seqdef(biofam, 10:25, labels=biofam.lab)
+# Compute pairwise distances using Optimal Matching
+biofam_dist <- seqdist(biofam.seq, method = "OM", sm = "CONSTANT", indel = 1)
+kmeans_cluster_dist <- kmeans_cluster (biofam_dist)
+table(kmeans_cluster_dist$label)
+```
+
+```{r}
+#load("/Users/xzhao17/Documents/GitHub/xc_cj_clustering_cfd/R/acj/scenario A B with 100 replicas/A_clickclusters_scenAB_n100t2000A.RData")
+#cluster_check <- list(cs_ri=cs_ri, cs_ari=cs_ari, cc_ri=cc_ri, cc_ari=cc_ari)
+get_ari_ri <- function(cc_datat){
+  cluster_check <- numeric(4)
+  n100t2000Adata <- unlist(cc_datat)
+  # for (i in 1:length(cluster_check )){
+  # vec <- n100t2000Adata[seq(i, length(n100t2000Adata), by = 4)]
+  # vec[i] <- mean(vec)
+  #  
+  # }
+  vec <- n100t2000Adata
+   cluster_check[1] <- mean( vec[1:100])
+    cluster_check[2] <- mean( vec[101:200])
+    cluster_check[3] <- mean( vec[201:300])
+    cluster_check[4] <- mean( vec[301:400])
+   names(cluster_check) <- c("cs_ri", "cs_ari", "cc_ri", "cc_ari")
+   return(cluster_check)
+}
+
+n100t2000A_resut <- get_ari_ri(n100t2000A)
+n100t2000A_resut
+
+n500t2000A_resut <- get_ari_ri(n500t2000A)
+n500t2000A_resut
+
+n1000t2000A_resut <- get_ari_ri(n1000t2000A)
+n1000t2000A_resut
+
+n100t2000B_resut <- get_ari_ri(n100t2000B)
+n100t2000B_resut
+
+n500t2000B_resut <- get_ari_ri(n500t2000B)
+n500t2000B_resut
+
+n1000t2000B_resut <- get_ari_ri(n1000t2000B)
+n1000t2000B_resut
+#  cs_ri    cs_ari     cc_ri    cc_ari 
+# 0.6116586 0.6815171 0.6078788 0.0000000 
+#     cs_ri    cs_ari     cc_ri    cc_ari 
+# 0.6090783 0.6594613 0.6110220 0.0000000 
+#     cs_ri    cs_ari     cc_ri    cc_ari 
+# 0.6066655 0.6732508 0.6114114 0.0000000 
+#     cs_ri    cs_ari     cc_ri    cc_ari 
+# 0.8468202 0.7968735 0.3737374 0.0000000 
+#     cs_ri    cs_ari     cc_ri    cc_ari 
+# 0.8543060 0.8127439 0.3787575 0.0000000 
+#     cs_ri    cs_ari     cc_ri    cc_ari 
+# 0.8497240 0.7828663 0.3793794 0.0000000 
+# Time difference of 4.173721 mins
+taken_time100
+#Time difference of 4.023987 mins
+```
+
+```{r}
+
+
+
+
+get_ari_ri_D <- function(cc_datat){
+  cluster_check <- numeric(4)
+  n100t2000Adata <- unlist(cc_datat)
+  vec <- n100t2000Adata
+   cluster_check[1] <- mean( vec[1:5])
+    cluster_check[2] <- mean( vec[6:10])
+    cluster_check[3] <- mean( vec[11:15])
+    cluster_check[4] <- mean( vec[16:20])
+   names(cluster_check) <- c("cs_ri", "cs_ari", "cc_ri", "cc_ari")
+   return(cluster_check)
+}
+
+```
+
+```{r}
+load("/Users/xzhao17/Documents/GitHub/xc_cj_clustering_cfd/R/acj/sceneD 5 replicas/clickclusters_scenD_n1000t2016.RData")
+n1000t2016_resut <- get_ari_ri_D(n1000t2016)
+n1000t2016_resut
+# n1000t2016_resut
+#     cs_ri    cs_ari     cc_ri    cc_ari 
+# 0.5741465 0.4491552 0.4594595 0.0000000 
+ load("/Users/xzhao17/Documents/GitHub/xc_cj_clustering_cfd/R/acj/clickclusters_scenD_n2000t2016.RData")
+n2000t2016_resut <- get_ari_ri_D(n2000t2016)
+n2000t2016_resut
+# n2000t2016_resut
+#     cs_ri    cs_ari     cc_ri    cc_ari 
+# 0.5729793 0.4305162 0.4597299 0.0000000
+ load("/Users/xzhao17/Documents/GitHub/xc_cj_clustering_cfd/R/acj/clickclusters_scenD_n3000t2016.RData")
+n3000t2016_resut <- get_ari_ri_D(n3000t2016)
+# n3000t2016_resut
+# #  cs_ri    cs_ari     cc_ri    cc_ari 
+# # 0.5741465 0.4491552 0.4594595 0.0000000 
+```
+
+
+
+```{r}
+load("/Users/xzhao17/Documents/GitHub/xc_cj_clustering_cfd/R/acj/scenario A B with 100 replicas/A_clickclusters_scenAB_n500t2000A.RData")
+
+n500t2000Aari <- mean( unlist(n500t2000A))
+n500t2000Aari
+taken_time500
+
+#  n500t2000Aari
+# [1] 0.4698904
+# > #0.4752636
+# > taken_time500
+# Time difference of 20.66384 mins
+```
+
+
+```{r}
+load("/Users/xzhao17/Documents/GitHub/xc_cj_clustering_cfd/R/acj/scenario A B with 100 replicas/A_clickclusters_scenAB_n1000t2000A.RData")
+n1000t2000Aari <- mean( unlist(n1000t2000A))
+n1000t2000Aari
+taken_time1000
+#[1] 0.4728319
+#Time difference of 40.91282 mins
+```
+
+```{r}
+load("/Users/xzhao17/Documents/GitHub/xc_cj_clustering_cfd/R/acj/scenario A B with 100 replicas/B_clickclusters_scenAB_n100t2000A.RData")
+
+n100t2000AariB <- mean( unlist(n100t2000B))
+n100t2000AariB
+taken_time100
+
+# n1000t2000AariB
+# [1] 0.5043578
+# > taken_time100
+# Time difference of 4.173721 mins
+```
+
+```{r}
+load("/Users/xzhao17/Documents/GitHub/xc_cj_clustering_cfd/R/acj/scenario A B with 100 replicas/B_clickclusters_scenAB_n500t2000A.RData")
+n500t2000AariB <- mean( unlist(n500t2000B))
+n500t2000AariB
+taken_time500
+
+# [1] 0.5114518
+# Time difference of 20.79823 mins
+```
+
+```{r}
+load("/Users/xzhao17/Documents/GitHub/xc_cj_clustering_cfd/R/acj/scenario A B with 100 replicas/B_clickclusters_scenAB_n1000t2000A.RData")
+n1000t2000AariB <- mean( unlist(n1000t2000B))
+n1000t2000AariB
+taken_time1000
+# 
+# [1] 0.5029924
+# Time difference of 41.42808 mins
+```
+
