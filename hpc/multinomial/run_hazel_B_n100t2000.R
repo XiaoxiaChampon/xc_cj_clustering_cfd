@@ -1,5 +1,5 @@
 # ============================================================
-# Hazel HPC — Scenario B | n=1000, t=2000
+# Hazel HPC — Scenario B | n=100, t=2000
 # Cluster fractions:  50% / 30% / 20%
 # mu_2 (setting 1):   -0.5 + exp(2t)  [closer means, harder separation]
 # Method:             catFDA-dbscan only
@@ -7,7 +7,7 @@
 # ============================================================
 
 # setwd("D:/PROJECTS/PAPERS/jasa_paper/xc_cj_clustering_cfd")
-source("catfda_cluster_lib_hazel.R")
+source("../catfda_cluster_lib_hazel.R")
 
 set.seed(123)
 
@@ -28,22 +28,22 @@ cat("Output folder:", temp_folder, "\n")
 
 start_time <- Sys.time()
 
-n1000t2000 <- ClusterSimulation(
-  1000, 2000, scenario, num_replicas, est_choice,
+n100t2000 <- ClusterSimulation(
+  100, 2000, scenario, num_replicas, est_choice,
   run_hellinger = FALSE, temp_folder,
   run_univfpca, run_kmeans, run_fadp, run_dbscan, run_cfda,
   save_curves = FALSE
 )
 
 end_time <- Sys.time()
-print("run_hazel_table2_B_n1000t2000.R completed")
+print("run_hazel_table2_B_n100t2000.R completed")
 cat("\nTotal time:\n")
 print(end_time - start_time)
 flush(stdout())
 
-cat("\n=== catFDA-dbscan ARI — Scenario B | n=1000, t=2000 ===\n")
-cat(sprintf("  Mean ARI : %.4f\n", n1000t2000[[est_choice]]$cluster_table_est["dbscan ARI"]))
-cat(sprintf("  SE (ARI) : %.4f\n", n1000t2000[[est_choice]]$cluster_table_est_se["dbscan ARI"]))
+cat("\n=== catFDA-dbscan ARI — Scenario B | n=100, t=2000 ===\n")
+cat(sprintf("  Mean ARI : %.4f\n", n100t2000[[est_choice]]$cluster_table_est["dbscan ARI"]))
+cat(sprintf("  SE (ARI) : %.4f\n", n100t2000[[est_choice]]$cluster_table_est_se["dbscan ARI"]))
 cat(sprintf("  Replicas : %d\n", num_replicas))
 flush(stdout())
 

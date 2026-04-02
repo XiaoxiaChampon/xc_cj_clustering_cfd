@@ -6,14 +6,19 @@
 # ============================================================
 
 # setwd("D:/PROJECTS/PAPERS/jasa_paper/xc_cj_clustering_cfd")
-source("catfda_cluster_lib_hazel.R")
+if (!exists("ClusterSimulation")) source("../catfda_cluster_lib_hazel.R")
 
-batch_id     <- as.integer(Sys.getenv("LSB_JOBINDEX", unset = "1"))
-set.seed(123 + batch_id * 1000)
+batch_id_env <- Sys.getenv("LSB_JOBINDEX", unset = "")
+if (nchar(batch_id_env) > 0) {
+  batch_id <- as.integer(batch_id_env)
+  set.seed(123 + batch_id * 1000)
+} else {
+  set.seed(123)
+}
 
 scenario     <- "A"
-num_replicas <- 5
-est_choice   <- "multinomial"
+num_replicas <- 100
+est_choice   <- "binomial"
 
 run_univfpca <- TRUE
 run_kmeans   <- FALSE
@@ -21,9 +26,14 @@ run_fadp     <- FALSE
 run_dbscan   <- TRUE
 run_cfda     <- FALSE
 
-temp_folder <- file.path("outputs", "clustersims",
-                         paste0("A_", num_replicas, "_", est_choice, "_hazel_table1"),
-                         paste0("batch_", batch_id))
+temp_folder <- if (nchar(batch_id_env) > 0) {
+  file.path("outputs", "clustersims",
+            paste0("A_", num_replicas, "_", est_choice, "_hazel_table1"),
+            paste0("batch_", batch_id))
+} else {
+  file.path("outputs", "clustersims",
+            paste0("A_", num_replicas, "_", est_choice, "_hazel_table1"))
+}
 if (!dir.exists(temp_folder)) dir.create(temp_folder, recursive = TRUE)
 cat("Output folder:", temp_folder, "\n")
 

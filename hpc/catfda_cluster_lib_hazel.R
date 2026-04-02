@@ -43,7 +43,7 @@ library(rlang)
 library(catfda)
 
 # Source required functions
-source("R/acj/trapzfnum_function.R")
+source("../trapzfnum_function.R")
 # Source the improved estimation functions
 #source("R/XCATFDA/R/new_order.R")
 
@@ -236,7 +236,7 @@ mse_bw_matrix <- function(truecurve, estcurve, timestamps01) {
   # mseall=c(0)
   ###### could probably use apply function here it's also subject level
   mseall <- foreach(i = 1:n, .combine = c, .packages = c("pracma"), .export=c("trapzfnum")) %dorng% {
-    #source("R/acj/trapzfnum_function.R")
+    #source("../trapzfnum_function.R")
     return(rbind(trapzfnum(truecurve[, i], estcurve[, i], timestamps01)))
   }
 
@@ -257,7 +257,7 @@ mse_bw_matrixp <- function(truecurve, estcurve, timestamps01) {
 
   sqrt_2 <- sqrt(2)
   mseall <- foreach(i = 1:n, .combine = c, .packages = c("pracma"), .export=c("trapzfnump")) %dorng% {
-    #source("R/acj/trapzfnum_function.R")
+    #source("../trapzfnum_function.R")
     return(rbind(trapzfnump(truecurve[, i], estcurve[, i], timestamps01) / sqrt_2))
   }
 
