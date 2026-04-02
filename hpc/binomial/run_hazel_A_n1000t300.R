@@ -6,7 +6,7 @@
 # ============================================================
 
 # setwd("D:/PROJECTS/PAPERS/jasa_paper/xc_cj_clustering_cfd")
-if (!exists("ClusterSimulation")) source("catfda_cluster_lib_hazel.R")
+if (!exists("ClusterSimulation")) source("../catfda_cluster_lib_hazel.R")
 
 batch_id_env <- Sys.getenv("LSB_JOBINDEX", unset = "")
 if (nchar(batch_id_env) > 0) {

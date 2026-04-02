@@ -6,7 +6,7 @@
 # ============================================================
 
 # setwd("D:/PROJECTS/PAPERS/jasa_paper/xc_cj_clustering_cfd")
-source("catfda_cluster_lib_hazel.R")
+source("../catfda_cluster_lib_hazel.R")
 
 batch_id     <- as.integer(Sys.getenv("LSB_JOBINDEX", unset = "1"))
 set.seed(123 + batch_id * 1000)

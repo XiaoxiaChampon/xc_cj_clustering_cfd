@@ -7,7 +7,7 @@
 # ============================================================
 
 # setwd("D:/PROJECTS/PAPERS/jasa_paper/xc_cj_clustering_cfd")
-source("catfda_cluster_lib_hazel.R")
+source("../catfda_cluster_lib_hazel.R")
 
 set.seed(123)
 
