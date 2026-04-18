@@ -3,19 +3,6 @@
   Categorical Functional Data Clustering with Twitter Application
 ============================================================
 
-DATA AVAILABILITY
------------------
-Large pre-computed data files (*.RData) are NOT included in the code repository
-due to file size. Download them from Zenodo before running any scripts:
-
-  Zenodo DOI: https://doi.org/10.5281/zenodo.XXXXXXX   [to be updated on upload]
-
-Place all downloaded .RData files in:
-  submission_revision/data/processed/
-
-The CSV files in data/raw/ and data/processed/ are included in the repository.
-
-
 WORKING DIRECTORY
 -----------------
 Scripts use paths relative to their own location; no global working directory
