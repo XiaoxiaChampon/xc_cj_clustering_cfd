@@ -1,0 +1,3506 @@
+---
+title: "applyTwitter"
+author: "Xiaoxia Champon"
+date: "4/30/2022"
+output: pdf_document
+---
+
+
+```{r}
+library(mgcv)
+set.seed(6)
+## simulate some data from a three class model
+n <- 1000
+f1 <- function(x) sin(3*pi*x)*exp(-x)
+f2 <- function(x) x^3
+f3 <- function(x) .5*exp(-x^2)-.2
+f4 <- function(x) 1
+x1 <- runif(n);x2 <- runif(n)
+eta1 <- 2*(f1(x1) + f2(x2))-.5
+eta2 <- 2*(f3(x1) + f4(x2))-1
+p <- exp(cbind(0,eta1,eta2))
+p <- p/rowSums(p) ## prob. of each category 
+cp <- t(apply(p,1,cumsum)) ## cumulative prob.
+## simulate multinomial response with these probabilities
+## see also ?rmultinom
+y <- apply(cp,1,function(x) min(which(x>runif(1))))-1
+## plot simulated data...
+plot(x1,x2,col=y+3)
+
+## now fit the model...
+b <- gam(list(y~s(x1)+s(x2),~s(x1)+s(x2)),family=multinom(K=2))
+plot(b,pages=1)
+gam.check(b)
+```
+
+```{r}
+for (i in 1:100){
+  print(i)
+  fit_binom<-gam(list(W[,i]-1~s(tt)+s(tt),~s(tt)+s(tt)),family=multinom(K=2)) 
+  
+}
+
+```
+
+```{r}
+fit_binom<-gam(list(W[,84]-1~s(tt)+s(tt),~s(tt)+s(tt)),family=multinom(K=2))
+```
+
+```{r}
+gam.check(fit_binom)
+```
+
+
+
+```{r}
+#load("twittertime.RData")
+load("X_i1.RData")
+load("X_i2.RData")
+load("X_i3.RData")
+```
+
+```{r}
+W_twitter=X_i1*1+X_i2*2+X_i3*3
+save(W_twitter,file="W_twitter.RData")
+```
+
+
+```{r}
+load("W_twitter.RData")
+```
+
+
+```{r}
+twitter_one=sample(which(twitter_label$x==1),3)
+twitter_two=sample(which(twitter_label$x==2),3)
+twitter_three=sample(which(twitter_label$x==3),3)
+sub_individual=c(twitter_one,twitter_two,twitter_three)
+```
+
+```{r}
+sample(which(twitter_label$x==3),3)
+```
+
+
+```{r}
+which(twitter_label$x==1)
+```
+
+
+```{r}
+which(twitter_label$x==2)
+```
+
+
+
+```{r}
+sub_individual
+```
+
+```{r}
+sub_individual_new=c(1, 2, 3, 11, 24, 25, 3680,  3702,3815)
+```
+
+
+
+```{r}
+which(W_twitter[sub_individual[9],]==3)
+```
+
+```{r}
+which(W_twitter[sub_individual[8],]==3)
+```
+
+```{r}
+which(W_twitter[sub_individual[7],]==3)
+```
+
+```{r}
+which(W_twitter[3766,]==3)
+```
+
+
+
+
+```{r}
+which(W_twitter[3815,]==3)
+```
+
+```{r}
+which(W_twitter[3702,]==3)
+```
+
+```{r}
+which(W_twitter[3680,]==3)
+```
+
+
+
+
+
+```{r}
+twitter_label=read.csv("twitter_3875_clusterlabel.csv")
+```
+
+```{r}
+twitter_one=sample(which(twitter_label$x==1),3)
+twitter_two=sample(which(twitter_label$x==2),3)
+twitter_three=sample(which(twitter_label$x==3),3)
+```
+
+
+```{r}
+library(cfda)
+twitter_time=t
+twitter_id=1:length(twitter_label$x)
+```
+
+```{r}
+twitter_data_frame_cfda= data.frame(matrix(nrow = length(twitter_id)*length(twitter_time), ncol = 3))
+twitter_data_frame_cfda$id=rep(twitter_id,each=length(twitter_time))
+twitter_data_frame_cfda$time=rep(twitter_time,length(twitter_id))
+twitter_data_frame_cfda$state=c(t(W_twitter))
+twitter_data_frame_cfda=twitter_data_frame_cfda[,4:6]
+save(twitter_data_frame_cfda,file="twitter_data_frame_cfda.RData")
+```
+
+
+```{r}
+started_time=Sys.time()
+started_time
+Tmax_all=max(twitter_data_frame_cfda$time)
+ cfda_cut_all=cut_data(twitter_data_frame_cfda, Tmax = Tmax_all)
+  m_basis <- 10
+  b_basis <- create.bspline.basis(c(0, Tmax_all), nbasis = m_basis, norder = 4)
+  twitter_cfda_results <- compute_optimal_encoding(cfda_cut_all, b_basis, nCores = 9, verbose = FALSE)
+  twitter_cfda_results$runTime
+  #9558.135.   9558.135/60=159.3
+```
+
+
+
+```{r}
+sub_individual=c(twitter_one,twitter_two,twitter_three)
+```
+
+```{r}
+load("twitter_data_frame_cfda.RData")
+```
+
+
+```{r}
+load("twittertime.RData")
+```
+
+```{r}
+sub_individual_new=c(1, 2, 3, 11, 99, 431, 3680,  3702,3815)
+```
+
+
+
+```{r}
+#550
+#700
+#900
+#1050
+#1500
+##150 cluster 3
+##350 cluster 2
+time_index=1800
+twitter_time_subset=twitter_time[time_index:(time_index+100)]
+twitter_data_frame_cfda_subset=twitter_data_frame_cfda[(twitter_data_frame_cfda$id %in% sub_individual_new) ,]
+twitter_data_frame_cfda_subset$state[twitter_data_frame_cfda_subset$state==1]="No Tweet"
+twitter_data_frame_cfda_subset$state[twitter_data_frame_cfda_subset$state==2]="Tweet Non-Ref Brand"
+twitter_data_frame_cfda_subset$state[twitter_data_frame_cfda_subset$state==3]="Tweet on Ref Brand"
+twitter_fig=twitter_data_frame_cfda_subset[twitter_data_frame_cfda_subset$time<max(twitter_time_subset)& twitter_data_frame_cfda_subset$time>min(twitter_time_subset),]
+Tmax=max(twitter_fig$time)
+twittercut <- cut_data(twitter_fig, Tmax = Tmax)
+plotData(twittercut)+
+  theme(text = element_text(size = 20))  +
+  theme(legend.position="bottom")+
+  scale_x_continuous(breaks=c(0.88,0.91), labels=c('March 11, 2017', 'March 12, 2017'))
+
+
+```
+
+#change id to 1-9
+```{r}
+
+twittercut_new_id=twittercut
+twittercut_new_id$id[twittercut_new_id$id==11]=4
+twittercut_new_id$id[twittercut_new_id$id==99]=5
+twittercut_new_id$id[twittercut_new_id$id==431]=6
+twittercut_new_id$id[twittercut_new_id$id==3680]=7
+twittercut_new_id$id[twittercut_new_id$id==3702]=8
+twittercut_new_id$id[twittercut_new_id$id==3815]=9
+
+plotData(twittercut_new_id)+
+  theme(text = element_text(size = 20))  +
+  theme(legend.position="bottom")+
+  scale_x_continuous(breaks=c(0.88,0.91), labels=c('March 11, 2017', 'March 12, 2017'))
+
+
+```
+
+
+##15 minuetes to check the sensitivity
+```{r}
+X_i1_15min=read.csv(file='15min_no_tweet_dataset.csv')[,-1]   #3875, 2162  to 1000,2161  1st col originally the id X
+X_i2_15min=read.csv(file='15mn_no_mentions_dataset.csv')[,-1]  
+X_i3_15min=read.csv(file='15min_mentions_dataset.csv')[,-1]
+timet_15min=colnames(X_i1_15min)
+timetnew_15min=gsub("X","",timet_15min)
+timetnewn_15min=gsub('\\.', '-', timetnew_15min)
+time1_15min=stringi::stri_replace_last_regex(timetnewn_15min,'-',':')
+time2_15min=stringi::stri_replace_last_regex(time1_15min,'-',':')
+time3_15min=stringi::stri_replace_last_regex(time2_15min,'-',' ')
+startendt_15min=time3_15min[c(1,length(time3_15min))] # "2017-02-14 03:00:00" "2017-03-16 03:00:00"
+time4_15min=as.numeric(as.POSIXct(strptime(time3_15min,"%Y-%m-%d %H:%M:%S")))
+which(is.na(time4_15min)) #1870 1871 1872. #2492 2493 2494 2495
+time4_15min[c(2492, 2493, 2494, 2495)]=as.numeric(as.POSIXct(c("2017-03-12 02:00:00", "2017-03-12 02:20:00" ,"2017-03-12 02:40:00"),"%Y-%m-%d %H:%M:%S",tz="EST"))
+time5_15min=time4_15min-min(time4_15min)
+timefinal_15min=time5_15min/max(time5_15min)
+t_15min=timefinal_15min[101:2100]
+st_15min=t_15min[1]
+et_15min=tail(t_15min,n=1)
+datapoints_15min=length(t_15min)
+X_i1_15m=X_i1_15min[101:2100]
+X_i2_15m=X_i2_15min[101:2100]
+X_i3_15m=X_i3_15min[101:2100]
+colnames(X_i1_15m)=t_15min
+colnames(X_i2_15m)=t_15min
+colnames(X_i3_15m)=t_15min
+
+save(X_i1,file="X_i1t_15min.RData")
+save(X_i2,file="X_i2t_15min.RData")
+save(X_i3,file="X_i3t_15min.RData")
+save(t_15min,st_15min,et_15min,file="twittertime_15min.RData")
+```
+
+
+
+#pre processing
+
+```{r}
+# X_i1r=read.csv(file='dataset2notweets.csv')[1:1000,-1]   #3875, 2162  to 1000,2161  1st col originally the id X
+# X_i2r=read.csv(file='dataset0tweetnomention.csv')[1:1000,-1]  
+# X_i3r=read.csv(file='dataset1mention.csv')[1:1000,-1]
+```
+
+
+```{r}
+X_i1r=read.csv(file='/Users/xzhao17/Documents/GitHub/xc_cj_clustering_cfd/R/submission_code/no_tweet_dataset.csv')[,-1]   #3875, 2162  to 1000,2161  1st col originally the id X
+X_i2r=read.csv(file='/Users/xzhao17/Documents/GitHub/xc_cj_clustering_cfd/R/submission_code/no_mentions_dataset.csv')[,-1]  
+X_i3r=read.csv(file='/Users/xzhao17/Documents/GitHub/xc_cj_clustering_cfd/R/submission_code/mentions_dataset.csv')[,-1]
+timet=colnames(X_i1r)
+timetnew=gsub("X","",timet)
+timetnewn=gsub('\\.', '-', timetnew)
+time1=stringi::stri_replace_last_regex(timetnewn,'-',':')
+time2=stringi::stri_replace_last_regex(time1,'-',':')
+time3=stringi::stri_replace_last_regex(time2,'-',' ')
+startendt=time3[c(1,length(time3))] # "2017-02-14 03:00:00" "2017-03-16 03:00:00"
+time4=na.omit(as.numeric(as.POSIXct(strptime(time3,"%Y-%m-%d %H:%M:%S"))))
+```
+
+
+```{r}
+# which(is.na(time4)) #1870 1871 1872. #17350 17351 17352
+# time4[c(1870,1871,1872)]=as.numeric(as.POSIXct(c("2017-03-12 02:00:00", "2017-03-12 02:20:00" ,"2017-03-12 02:40:00"),"%Y-%m-%d %H:%M:%S",tz="EST"))
+time5=time4-min(time4)
+timefinal=time5/max(time5)
+#t=timefinal[101:2100]
+t=timefinal[101:2116]
+
+save(t,file="time_stamp.RData")
+
+st=t[1]
+et=tail(t,n=1)
+datapoints=length(t)
+# X_i1=X_i1r[101:2100]
+# X_i2=X_i2r[101:2100]
+# X_i3=X_i3r[101:2100]
+X_i116=X_i1r[101:2116]
+X_i216=X_i2r[101:2116]
+X_i316=X_i3r[101:2116]
+colnames(X_i116)=t
+# colnames(X_i2)=t
+# colnames(X_i3)=t
+
+# save(X_i1,file="X_i1.RData")
+# save(X_i2,file="X_i2.RData")
+# save(X_i3,file="X_i3.RData")
+# save(t,st,et,file="twittertime.RData")
+
+save(X_i116,file="X_i116.RData")
+save(X_i216,file="X_i216.RData")
+save(X_i316,file="X_i316.RData")
+save(t,st,et,file="twittertime2016.RData")
+
+# startt=Sys.time()
+load("X_i1.RData")
+load("X_i2.RData")
+load("X_i3.RData")
+#############################
+
+#01_functions
+###############################
+
+
+library(xtable)
+library(fda)
+library(refund)
+library(Matrix)
+library(MASS)
+library(arm)
+library(mgcv)
+library(readr)
+library(funData)
+library(MFPCA)
+# library(purrr)
+library(tidyverse)
+library(gridExtra)
+# library(knitr)
+# library(kableExtra)
+library(dbscan)
+library(cfda)
+library(tidyr)
+library(dplyr)
+
+
+############################################################################
+#function to to generate and simulate data
+##########################################################################
+
+
+
+
+#Function to return the logit
+logit <- function(x){
+  return(log(x/(1-x)))
+}
+
+#####
+#Function: wrapper function for gam() which outputs the fitted values
+#
+#Inputs: 
+# z : index z = 1,...,N 
+# Curves : N x D matrix of observed binary series
+# tt : grid of timepoints going from 0 to 1 with D observations
+# k : number of basis functions
+# method: method used to evaluate the gam
+#
+#Output: 
+# Fitted values from the game function for subject z 
+#
+#####
+#get smoothed curves
+regression_g = function(z, Curves, tt, k=25, method="ML"){   #changed from 10 to 25
+  z1 = Curves[z,]
+  gam1 <- gam(z1~s(tt, bs = "cr", m=2, k = k),
+              family="binomial", method = method,control=list(maxit = 500,mgcv.tol=1e-4,epsilon = 1e-04),optimizer=c("outer","bfgs"))
+  return(gam1$fitted.values)
+}
+
+probc=function(Curves_train,tt){
+  N_train=dim(as.matrix(Curves_train))[1]
+  vec = matrix(1:(N_train), ncol = 1)
+  smoothed_p = t(apply(vec, 1, function(x) regression_g(x, as.matrix(Curves_train), tt)))
+  smoothed_p
+}
+
+
+#adjust to ML 4/6/2022
+# regression_g = function(z, tt, k=25, method="ML"){
+#   gam1 <- gam(z~s(tt, bs = "cr", m=2, k = k), 
+#               family="binomial", method = method,control=list(maxit = 500,mgcv.tol=1e-4,epsilon = 1e-04),optimizer=c("outer","bfgs"))
+#   return(gam1$fitted.values)
+# }
+
+
+
+
+######################################################################################################################
+#original before 4/6/2022
+##
+#Step 1 of the proposed method in Anthony paper one: smoothing using link function
+##
+
+#New function to output predicted L-1 latent curves:
+#input observed X_i1 or X_i2 binary curves and return smoothed Z_i1hat, Z_i2hat
+Z_ihat=function(Curves_train,tt){
+  N_train=dim(Curves_train)[1]
+  vec = matrix(1:(N_train), ncol = 1)
+  smoothed_x = logit(t(apply(vec, 1, function(x) regression_g(x, Curves_train, tt))))
+  smoothed_x
+}
+########################################################################################################################
+
+#####################################################################################################
+# 4//6/ 2022
+##
+#Step 1 of the proposed method in Anthony paper one: smoothing using link function
+##
+
+#New function to output predicted L latent probability curves:
+#input observed X_i1 or X_i2 binary curves and return smoothed p_i1hat, p_i2hat
+
+
+#########################################################################################################
+
+
+
+
+
+#n number of subjects
+#datapoints
+#sparse=1 yes   sparse=0 no
+#scorevar=2 bigger var , scorevar=1 smaller var
+#ps=1 find z1,z2,z3, find p1,p2,p3, logp1-logp3
+#ps=2 find z1,z2,z3, find p1,p2,p3=1-p1-p2 logp1-logp3
+#ps=3 find z1,z2 staicu find z1hat z2hat
+#ps=4 find z1,z2 staicu find z1hat z2hat but only use numerator
+#k  #number of eigen functions
+#q  #level of the categorical level
+datapoints=dim(X_i1)[2]
+n=dim(X_i1)[1]
+st=as.numeric(colnames(X_i1))[1]
+et=tail(as.numeric(colnames(X_i1)),n=1)
+t=as.numeric(colnames(X_i1))
+get_estimate_latent=function(X_i1,X_i2,X_i3,ps,k){
+  
+  k=k
+  
+  #k=3  #number of eigen functions
+  q=3  #level of the categorical level
+  # n=10 #number of subjects
+  
+  
+  #collect value and graph
+  #collect first two rows of observed binary curves
+  # X_i1=t(X_i[1,,])  #all n row subjects , t columns values related to p1
+  # X_i2=t(X_i[2,,]) #all n row subjects , t columns values related to p2
+  # X_i3=t(X_i[3,,]) #all n row subjects , t columns values related to p3
+  
+  #recover Z_i1 hat using X_i[1,all j, all n] only related to p1
+  Z_i1hat=Z_ihat(X_i1,t)
+  #recover Z_i2 hat using X_i[2,all j, all n] only related to p2 
+  Z_i2hat=Z_ihat(X_i2,t)
+  Z_i3hat=Z_ihat(X_i3,t)
+  
+  
+  # Z_i1hatstar=log(exp(Z_i1hat))+log(1+exp(Z_i3hat))-log(1+exp(Z_i1hat))-log(exp(Z_i3hat))
+  # Z_i2hatstar=log(exp(Z_i2hat))+log(1+exp(Z_i3hat))-log(1+exp(Z_i2hat))-log(exp(Z_i3hat))
+  
+  
+  # common_check=1-exp(Z_i1hat+Z_i2hat)-exp(Z_i2hat)
+  # common_check[common_check<=0]=0.001
+  # 
+  # 
+  # 
+  # Z_i1hatstar=Z_i1hat-log(common_check)
+  # Z_i2hatstar=Z_i2hat+log(1+exp(Z_i1hat))-log(common_check)
+  if(ps==1){ 
+    # smooth_p1=(1+exp(-Z_i1hat))^(-1)
+    # smooth_p2=(1+exp(-Z_i2hat))^(-1)
+    # smooth_p3=(1+exp(-Z_i3hat))^(-1)
+    # Z_i1hatstar=log(smooth_p1)-log(smooth_p3)
+    # Z_i2hatstar=log(smooth_p2)-log(smooth_p3)
+    
+    
+    Z_i1hatstar=Z_i1hat+log(1+exp(Z_i3hat))-log(1+exp(Z_i1hat))-Z_i3hat
+    Z_i2hatstar=Z_i2hat+log(1+exp(Z_i3hat))-log(1+exp(Z_i2hat))-Z_i3hat
+  }
+  
+  
+
+  
+  p_i1hat=p_ihat(Z_i1hatstar,Z_i2hatstar)$p_1hatmatrix
+  p_i2hat=p_ihat(Z_i1hatstar,Z_i2hatstar)$p_2hatmatrix
+  p_i3hat=p_ihat(Z_i1hatstar,Z_i2hatstar)$p_3hatmatrix
+  
+  
+  # 
+  # #plot and compare
+  # par(mfrow=c(1,3))
+  # matplot(t(p_i1[1:ns,]),col="green")  #true Z_i1 for first subject
+  # matlines(t(p_i1hat[1:ns,]),col="red")
+  # 
+  # matplot(t(p_i2[1:ns,]),col="green")  #true Z_i1 for first subject
+  # matlines(t(p_i2hat[1:ns,]),col="red")
+  # 
+  # matplot(t(p_i3[1:ns,]),col="green")  #true Z_i1 for first subject
+  # matlines(t(p_i3hat[1:ns,]),col="red")
+  # truel=list("TrueX1"=X_i1,"TrueX2"=X_i2,"TrueX3"=X_i3,"TrueZ_i1"=Z_i1,"TrueZ_i2"=Z_i2,"Truep_i1"=p_i1,"Truep_i2"=p_i2,"Truep_i3"=p_i3,"Truescore_matrix"=score_matrix,"Truecatcurve"=X_nt)
+  truel=list("Truecatcurve"=X_nt)
+  est=list("EstimateZ_i1"=Z_i1hatstar,"EstimateZ_i2"=Z_i2hatstar,"Estimatep_i1"=p_i1hat,"Estimatep_i2"=p_i2hat,"Estimatep_i3"=p_i3hat)
+  return(list("Trueth"=truel,"Est"=est))
+}
+
+
+
+
+# MFPCA_result
+baysglm_result=function(datagenerated,M,datapoints,q=3,n,st,et,t){
+  datapoints=datapoints
+  # t=seq(from = st,to = et, length=datapoints)
+  t=t
+  st=st
+  et=et
+  #collect True Z_is, p_is and estimated latent curves Z_ihat, p_ihat
+  #return(list(truevalues, estvalues))
+  # Z_i1_truth=truevalues$TrueZ_i1
+  # Z_i2_truth=truevalues$TrueZ_i2
+  #################################################################
+  # Z_i1_est=estvalues$EstimateZ_i1
+  # Z_i2_est=estvalues$EstimateZ_i2
+  ###############################################################
+  # p_i1_truth=truevalues$Truep_i1
+  # p_i2_truth=truevalues$Truep_i2
+  # p_i3_truth=truevalues$Truep_i3
+  ##########################################################################
+  # p_i1_est=estvalues$Estimatep_i1
+  # p_i2_est=estvalues$Estimatep_i2
+  # p_i3_est=estvalues$Estimatep_i3
+  ###########################################################################
+  
+  # Z_i1=datagenerated$Trueth$TrueZ_i1
+  # Z_i2=datagenerated$Trueth$TrueZ_i2
+  Z_i1hatstar=datagenerated$Est$EstimateZ_i1
+  Z_i2hatstar=datagenerated$Est$EstimateZ_i2
+  
+  
+  # p_i1=datagenerated$Trueth$Truep_i1
+  # p_i2=datagenerated$Trueth$Truep_i2
+  # p_i3=datagenerated$Trueth$Truep_i3
+  p_i1hat=datagenerated$Est$Estimatep_i1
+  p_i2hat=datagenerated$Est$Estimatep_i2
+  p_i3hat=datagenerated$Est$Estimatep_i3
+  
+  
+  
+  # categorical_curve=truevalues$Truecatcurve  #dim:n=200 subjects, col=t 500 points
+  #step 2: MFPCA
+  # Z_ihat muldata
+  m1=funData(argvals = list(t), X = Z_i1hatstar) #20*500
+  m2=funData(argvals = list(t), X = Z_i2hatstar) 
+  
+  # p_ihat muldata
+  # m1p=funData(argvals = list(t), X = p_i1hat) #20*500
+  # m2p=funData(argvals = list(t), X = p_i2hat)
+  # m3p=funData(argvals = list(t), X = p_i3hat)
+  # 
+  mvdata=multiFunData(list(m1,m2))
+  # mvdatap=multiFunData(list(m1p,m2p,m3p))
+  
+  
+  # if(sparse==1){
+  #   M=7
+  # }
+  # 
+  # 
+  # if(sparse==0){
+  #   M=5
+  # }
+  # 
+  M=M
+  
+  # MFPCA based on univariate FPCA Z_ihat
+  uFPCA <- MFPCA(mvdata, M = M, uniExpansions = list(list(type = "uFPCA"),
+                                                     list(type = "uFPCA")))
+  
+  
+  
+  # MFPCA based on univariate FPCA p_ihat
+  # uFPCAp <- MFPCA(mvdatap, M = M, uniExpansions = list(list(type = "uFPCA"),
+  #                                                      list(type = "uFPCA"),list(type = "uFPCA")))
+  # 
+  # MFPCA_results_Z=list("meanfnZ"=uFPCA$meanFunction,"eigenfnZ"=uFPCA$functions,"eigenvalueZ"=uFPCA$values,"scoresZ"=uFPCA$scores)
+  
+  
+  
+  # MFPCA_results_p=list("meanfnp"=uFPCAp$meanFunction,"eigenfnp"=uFPCAp$functions,"eigenvaluep"=uFPCAp$values,"scoresp"=uFPCAp$scores)
+  # no need for scores
+  MFPCA_results_Z=list("meanfnZ"=uFPCA$meanFunction,"eigenvalueZ"=uFPCA$values)
+  # 
+  # MFPCA_results_p=list("meanfnp"=uFPCAp$meanFunction,"eigenvaluep"=uFPCAp$values)
+  # 
+  
+  #MFPCA estimate
+  # Z_i1hatpca=apply(t(uFPCA$functions[[1]]@X)%*%t(uFPCA$scores),2,function(x) c(uFPCA$meanFunction[[1]]@X)+x)  #500*20
+  # Z_i2hatpca=apply(t(uFPCA$functions[[2]]@X)%*%t(uFPCA$scores),2,function(x) c(uFPCA$meanFunction[[2]]@X)+x)
+  
+  # pcap_i1hat=apply(t(uFPCAp$functions[[1]]@X)%*%t(uFPCAp$scores),2,function(x) c(uFPCAp$meanFunction[[1]]@X)+x)
+  # 
+  # 
+  # pcap_i2hat=apply(t(uFPCAp$functions[[2]]@X)%*%t(uFPCAp$scores),2,function(x) c(uFPCAp$meanFunction[[2]]@X)+x)
+  # 
+  # pcap_i3hat=apply(t(uFPCAp$functions[[3]]@X)%*%t(uFPCAp$scores),2,function(x) c(uFPCAp$meanFunction[[3]]@X)+x)
+  
+  # MFPCAest=list("Z_i1hat"=Z_i1hatpca,"Z_i2hat"=Z_i2hatpca,"p_i1hat"=pcap_i1hat,"p_i2hat"=pcap_i2hat,"p_i3hat"=pcap_i3hat)
+  
+  # MFPCAest=list("Z_i1hat"=Z_i1hatpca,"Z_i2hat"=Z_i2hatpca)
+  
+  
+  
+  ##use bayesian to find scores can't allocate vector size 6.7Gb
+  #bayesian scores for pi curves
+  ###################################################################################################################
+  #first need to combine multivariate data to one big matrix
+  #MU1+mu2
+  # muhatp=c(c(uFPCAp$meanFunction[[1]]@X),c(uFPCAp$meanFunction[[2]]@X),c(uFPCAp$meanFunction[[3]]@X))
+  # #eigenvalues=uFPCA$values/500
+  # eigenvaluesp=uFPCAp$values
+  # #eigenfunctions=(rbind(t(uFPCA$functions[[1]]@X),t(uFPCA$functions[[2]]@X),t(uFPCA$functions[[3]]@X)))*sqrt(500)
+  # eigenfunctionsp=(rbind(t(uFPCAp$functions[[1]]@X),t(uFPCAp$functions[[2]]@X),t(uFPCAp$functions[[3]]@X)))
+  # #smoothed probability curves instead of binary curves
+  # Curves_trainp=cbind(p_i1hat,p_i2hat,p_i1hat)
+  # q=q
+  # MFPCAdimp=q  #how many probabilities or how many categories
+
+  # 
+  # #bayesian scores for Zi curves
+  # #first need to combine multivariate data to one big matrix
+  # #MU1+mu2
+  muhatz=c(c(uFPCA$meanFunction[[1]]@X),c(uFPCA$meanFunction[[2]]@X))
+  #eigenvalues=uFPCA$values/500
+  eigenvaluesz=uFPCA$values
+  #eigenfunctions=(rbind(t(uFPCA$functions[[1]]@X),t(uFPCA$functions[[2]]@X),t(uFPCA$functions[[3]]@X)))*sqrt(500)
+  eigenfunctionsz=(rbind(t(uFPCA$functions[[1]]@X),t(uFPCA$functions[[2]]@X)))
+  #smoothed Z curves instead of binary curves
+  # Curves_trainz=cbind(log(smooth_p1)-log(smooth_p3),log(smooth_p2)-log(smooth_p3))
+  
+  Curves_trainz=cbind( Z_i1hatstar, Z_i2hatstar)
+  MFPCAdimz=q-1  #how many latent Z_i curves, or category-1
+  
+  
+  
+  
+  
+  #####
+  #Function: wrapper function for bayesglm() which outputs expected coefficients for the gaussian responses
+  #
+  #Inputs: 
+  # z : index z = 1,...,N 
+  # dta : data frame contain the subject id, mean function, eigenfunctions and observe binary values
+  # lm_structure: formula displaying the bayesglm function
+  # eigen_vals1: eigen_values for the psi coefficients
+  #
+  #Output: 
+  # Fitted values from the game function for subject z 
+  #
+  #####
+  # regression_bf2 = function(z, dta, lm_structure, eigen_vals1){
+  #   bayesglm1 = bayesglm(lm_structure,
+  #                        # family = binomial(link = "logit"),
+  #                        family=gaussian,
+  #                        data = subset(dta, dta$id==z),
+  #                        prior.scale = sqrt(eigen_vals1), #set scales
+  #                        prior.df = Inf, #normal priors
+  #                        scaled = F ) #Do not adjust the scales
+  #   return(bayesglm1$coefficients)
+  # }
+  
+  
+  ##########################################################################################################
+  
+  #write a function to produce the bayesian scores
+  #input muhat: column combined long  column of all multivariate MFPCA mean functions
+  #eigenvalues: MFPCA eigen values
+  #eigenfunctions: row combined long row of all multivariate MFPCA eigen functions
+  #Curves_train: column combined curves row is subject, column is time point
+  #not binary but smoothed curves after first step (either smoothed Z or p)
+  #dimention of the MFPCA (critical for how many times to repeat each individual when expand data to long format)
+  #output bayesian subject specific scores (row is the number of subjects, column is the dimention of # eigen functions)
+  #############################################################################################################
+  # bayesian_scores=function(muhat,eigenvalues,eigenfunctions,Curves_train, MFPCAdim,n=n){
+  #   ##
+  #   #STEP 3:
+  #   # Set up and apply Bayesglm framework
+  #   ##
+  #   fit = list(mu = muhat,
+  #              evalues = eigenvalues,
+  #              efunctions = eigenfunctions)
+  # 
+  #   mu_t_hat = fit$mu
+  #   eigen_vals1 = fit$evalues
+  #   eigen_funcs1 = fit$efunctions
+  # 
+  #   #data frame used in bayesglm
+  #   tt=t
+  #   N_train=n  #number of subjects
+  #   D=datapoints  #number of time points
+  #   dta = data.frame(index = rep(tt, N_train*MFPCAdim),
+  #                    value = c(t(Curves_train)),
+  #                    id = rep(1:N_train, each = D*MFPCAdim))
+  # 
+  #   npc = length(eigen_vals1)
+  #   if(npc>1){
+  #     for (z in 1:npc) {
+  #       dta <- cbind(dta, rep(eigen_funcs1[,z], N_train*MFPCAdim))
+  #     }
+  #   }else{
+  #     dta = cbind(dta, matrix(eigen_funcs1, ncol =1))
+  #   }
+  # 
+  #   #assign names to data frame
+  #   names(dta)[4:(4 + npc - 1)] <- c(paste0("ksi", 1:npc))
+  #   #repeat mean function in data frame once per user
+  #   dta$mu = rep(mu_t_hat , N_train)
+  # 
+  #   #get formula for glm
+  #   glm_structure = paste(paste0("ksi", 1:npc), collapse = "+")
+  #   glm_structure = paste("value ~ -1 + offset(mu) +" , glm_structure , sep="")
+  #   #set scale for the glm
+  #   prior_scales_test = eigen_vals1
+  # 
+  #   #Estimate the Scores for the training set
+  #   vec = matrix(1:N_train, ncol = 1)
+  #   scores_train = t(apply(vec, 1, function(x) regression_bf2(x, dta, glm_structure, prior_scales_test)))
+  #   return(scores_train)
+  # 
+  # }
+  n=n
+  st=st
+  et=et
+  t=t
+  # scores_p=bayesian_scores(muhatp,eigenvaluesp,eigenfunctionsp,Curves_trainp, MFPCAdimp)
+  scores_z=bayesian_scores(muhatz,eigenvaluesz,eigenfunctionsz,Curves_trainz, MFPCAdimz,datapoints=datapoints,n=n,st=st,et=et,t)
+  # bayesianscores=list("baypscores"=scores_p,"bayzscores"=scores_z)
+  # scores_p=bayesian_scores(muhatp,eigenvaluesp,eigenfunctionsp,Curves_trainp, MFPCAdimp,datapoints=datapoints,n=n,st=st,et=et)
+  # # 
+  pcaZ_i1hat=apply(t(uFPCA$functions[[1]]@X)%*%t(scores_z),2,function(x) c(uFPCA$meanFunction[[1]]@X)+x)  #500*20
+  pcaZ_i2hat=apply(t(uFPCA$functions[[2]]@X)%*%t(scores_z),2,function(x) c(uFPCA$meanFunction[[2]]@X)+x)
+  # 
+  # pcap_i1hatscore=apply(t(uFPCAp$functions[[1]]@X)%*%t(scores_p),2,function(x) c(uFPCAp$meanFunction[[1]]@X)+x)  #500*20
+  # pcap_i2hatscore=apply(t(uFPCAp$functions[[2]]@X)%*%t(scores_p),2,function(x) c(uFPCAp$meanFunction[[2]]@X)+x)
+  # pcap_i3hatscore=apply(t(uFPCAp$functions[[3]]@X)%*%t(scores_p),2,function(x) c(uFPCAp$meanFunction[[3]]@X)+x)
+  # # 
+  # #Bayesian estimate
+  BayEstimate=list("BaypcaZ_i1"=pcaZ_i1hat,"BaypcaZ_i2"=pcaZ_i2hat)
+  # 
+  
+  # return(list("Truth"=truevalues,"Smoothed"=estvalues,"MFPCAZ"=MFPCA_results_Z,"MFPCAp"=MFPCA_results_p,"Bayesian_scores"=bayesianscores,"MFPCAestimate"=MFPCAest,"BayesianEst"=BayEstimate))
+  #if no need for MFPCA scores and estimate
+  # return(list("MFPCAZ"=MFPCA_results_Z,"MFPCAp"=MFPCA_results_p,"Bayesian_scores"=bayesianscores,"BayesianEst"=BayEstimate))
+  #can't allocate vector size 6.7G whe using baysglm
+  
+  # return(list("MFPCAZ"=MFPCA_results_Z,"MFPCAestimate"=MFPCAest))
+  return(list("MFPCAZ"=MFPCA_results_Z,"Bayesian_scores"=scores_z,"BayesianEst"=BayEstimate))
+  
+}
+
+#step1
+#get_estimate_latent=function(X_i1,X_i2,X_i3,ps,k)
+trueest=get_estimate_latent(X_i1,X_i2,X_i3,1,3)
+#MFPCA
+#baysglm_result=function(datagenerated,M,datapoints,q=3,n,st,et,t)
+MFPCAr=baysglm_result(trueest,3,datapoints,q=3,n,st,et,t)
+
+endt=Sys.time()
+time_elapse=endt-startt
+time_elapse
+```
+
+```{r}
+X_i1rfall=read.csv('no_tweet_dataset.csv')
+```
+
+
+
+
+##all users
+```{r}
+```
+
+
+```{r}
+X_i1rf=read.csv('/Users/xzhao17/Documents/project1mac/no_tweet_dataset.csv')[,-1]   #3875, 2162  to 1000,2161  1st col originally the id X
+X_i2rf=read.csv('/Users/xzhao17/Documents/project1mac/no_mentions_dataset.csv')[,-1]  
+X_i3rf=read.csv('/Users/xzhao17/Documents/project1mac/mentions_dataset.csv')[,-1]
+#timet=colnames(X_i1rf)
+timet=colnames(X_i2rf)
+timetnew=gsub("X","",timet)
+timetnewn=gsub('\\.', '-', timetnew)
+time1=stringi::stri_replace_last_regex(timetnewn,'-',':')
+time2=stringi::stri_replace_last_regex(time1,'-',':')
+time3=stringi::stri_replace_last_regex(time2,'-',' ')
+startendt=time3[c(1,length(time3))] # "2017-02-14 03:00:00" "2017-03-16 03:00:00"
+time4=na.omit(as.numeric(as.POSIXct(strptime(time3,"%Y-%m-%d %H:%M:%S"))))
+# which(is.na(time4)) #1870 1871 1872
+# time4[c(1870,1871,1872)]=as.numeric(as.POSIXct(c("2017-03-12 02:00:00", "2017-03-12 02:20:00" ,"2017-03-12 02:40:00"),"%Y-%m-%d %H:%M:%S",tz="EST"))
+time5=time4-min(time4)
+timefinal=time5/max(time5)
+t=timefinal[101:2116]
+st=t[1]
+et=tail(t,n=1)
+datapoints=length(t)
+X_i1f2016=X_i1rf[101:2116]
+X_i2f2016=X_i2rf[101:2116]
+X_i3f2016=X_i3rf[101:2116]
+colnames(X_i1f2016)=t
+# colnames(X_i2f)=t
+# colnames(X_i3f)=t
+
+save(X_i1f2016,file="X_i1full2016.RData")
+save(X_i2f2016,file="X_i2full2016.RData")
+save(X_i3f2016,file="X_i3full2016.RData")
+```
+
+
+```{r}
+# startt=Sys.time()
+load("X_i1full.RData")
+load("X_i2full.RData")
+load("X_i3full.RData")
+```
+
+
+
+
+```{r}
+library(fda)
+library(refund)
+library(Matrix)
+library(MASS)
+library(arm)
+library(mgcv)
+# library(readr)
+library(funData)
+library(MFPCA)
+# library(purrr)
+library(tidyverse)
+library(gridExtra)
+# library(knitr)
+# library(kableExtra)
+ library(dbscan)
+# library(cfda)
+library(tidyr)
+library(dplyr)
+library(FADPclust)
+```
+
+
+```{r}
+
+#Function to return the logit
+logit <- function(x){
+  return(log(x/(1-x)))
+}
+
+#####
+#Function: wrapper function for gam() which outputs the fitted values
+#
+#Inputs: 
+# z : index z = 1,...,N 
+# Curves : N x D matrix of observed binary series
+# tt : grid of timepoints going from 0 to 1 with D observations
+# k : number of basis functions
+# method: method used to evaluate the gam
+#
+#Output: 
+# Fitted values from the game function for subject z 
+#
+#####
+#get smoothed curves
+regression_g = function(z, Curves, tt, k=25, method="ML"){   #changed from 10 to 25
+  z1 = Curves[z,]
+  gam1 <- gam(z1~s(tt, bs = "cr", m=2, k = k),
+              family="binomial", method = method,control=list(maxit = 500,mgcv.tol=1e-4,epsilon = 1e-04),optimizer=c("outer","bfgs"))
+  return(gam1$fitted.values)
+}
+
+
+######################################################################################################################
+#original before 4/6/2022
+##
+#Step 1 of the proposed method in Anthony paper one: smoothing using link function
+##
+
+#New function to output predicted L-1 latent curves:
+#input observed X_i1 or X_i2 binary curves and return smoothed Z_i1hat, Z_i2hat
+Z_ihat=function(Curves_train,tt){
+  N_train=dim(as.matrix(Curves_train))[1]
+  vec = matrix(1:(N_train), ncol = 1)
+  smoothed_x = logit(t(apply(vec, 1, function(x) regression_g(x, as.matrix(Curves_train), tt))))
+  smoothed_x
+}
+
+probc=function(Curves_train,tt){
+  N_train=dim(as.matrix(Curves_train))[1]
+  vec = matrix(1:(N_train), ncol = 1)
+  smoothed_p = t(apply(vec, 1, function(x) regression_g(x, as.matrix(Curves_train), tt)))
+  smoothed_p
+}
+
+p_ihat=function(Z_i1app,Z_i2app){
+  denom=(1+exp(Z_i1app)+exp(Z_i2app))
+  p_i1h=exp(Z_i1app)/denom
+  p_i2h=exp(Z_i2app)/denom
+  p_i3h=1/denom
+  # p_i3h=1-p_i1h- p_i2h
+  return(list("p_1hatmatrix"=p_i1h,"p_2hatmatrix"=p_i2h,"p_3hatmatrix"=p_i3h))
+}
+########################################################################################################################
+
+#####################################################################################################
+# 4//6/ 2022
+##
+#Step 1 of the proposed method in Anthony paper one: smoothing using link function
+##
+
+#New function to output predicted L latent probability curves:
+#input observed X_i1 or X_i2 binary curves and return smoothed p_i1hat, p_i2hat
+
+
+#########################################################################################################
+
+
+
+
+
+#n number of subjects
+#datapoints
+#sparse=1 yes   sparse=0 no
+#scorevar=2 bigger var , scorevar=1 smaller var
+#ps=1 find z1,z2,z3, find p1,p2,p3, logp1-logp3
+#ps=2 find z1,z2,z3, find p1,p2,p3=1-p1-p2 logp1-logp3
+#ps=3 find z1,z2 staicu find z1hat z2hat
+#ps=4 find z1,z2 staicu find z1hat z2hat but only use numerator
+#k  #number of eigen functions
+#q  #level of the categorical level
+# datapoints=dim(X_i1)[2]
+# n=dim(X_i1)[1]
+
+datapoints=dim(X_i1f)[2]
+n=dim(X_i1f)[1]
+# st=as.numeric(colnames(X_i1))[1]
+st=as.numeric(colnames(X_i1f))[1]
+# et=tail(as.numeric(colnames(X_i1)),n=1)
+et=tail(as.numeric(colnames(X_i1f)),n=1)
+t=as.numeric(colnames(X_i1f))
+get_estimate_latent=function(X_i1,X_i2,X_i3,ps,k,t){
+  
+  k=k
+  
+  #k=3  #number of eigen functions
+  q=3  #level of the categorical level
+  # n=10 #number of subjects
+  
+  
+  #collect value and graph
+  #collect first two rows of observed binary curves
+  # X_i1=t(X_i[1,,])  #all n row subjects , t columns values related to p1
+  # X_i2=t(X_i[2,,]) #all n row subjects , t columns values related to p2
+  # X_i3=t(X_i[3,,]) #all n row subjects , t columns values related to p3
+  ################################
+  # #recover Z_i1 hat using Z_i[1,all j, all n] only related to p1
+  # Z_i1hat=Z_ihat(X_i1,t)
+  # #recover Z_i2 hat using X_i[2,all j, all n] only related to p2
+  # Z_i2hat=Z_ihat(X_i2,t)
+  # Z_i3hat=Z_ihat(X_i3,t)
+  ##############################
+  
+  # #recover Z_i1 hat using Z_i[1,all j, all n] only related to p1. n*t
+  p1hat=probc(X_i1,t)
+  #recover Z_i2 hat using X_i[2,all j, all n] only related to p2
+  p2hat=probc(X_i2,t)
+  p3hat=probc(X_i3,t)
+  
+  
+  # Z_i1hatstar=log(exp(Z_i1hat))+log(1+exp(Z_i3hat))-log(1+exp(Z_i1hat))-log(exp(Z_i3hat))
+  # Z_i2hatstar=log(exp(Z_i2hat))+log(1+exp(Z_i3hat))-log(1+exp(Z_i2hat))-log(exp(Z_i3hat))
+  
+  
+  # common_check=1-exp(Z_i1hat+Z_i2hat)-exp(Z_i2hat)
+  # common_check[common_check<=0]=0.001
+  # 
+  # 
+  # 
+  # Z_i1hatstar=Z_i1hat-log(common_check)
+  # Z_i2hatstar=Z_i2hat+log(1+exp(Z_i1hat))-log(common_check)
+  if(ps==1){ 
+    # smooth_p1=(1+exp(-Z_i1hat))^(-1)
+    # smooth_p2=(1+exp(-Z_i2hat))^(-1)
+    # smooth_p3=(1+exp(-Z_i3hat))^(-1)
+    # Z_i1hatstar=log(smooth_p1)-log(smooth_p3)
+    # Z_i2hatstar=log(smooth_p2)-log(smooth_p3)
+    
+# 
+#     Z_i1hatstar=Z_i1hat+log(1+exp(Z_i3hat))-log(1+exp(Z_i1hat))-Z_i3hat
+#     Z_i2hatstar=Z_i2hat+log(1+exp(Z_i3hat))-log(1+exp(Z_i2hat))-Z_i3hat
+    # 
+    # eps=0.0001
+    #  Z_i1hatstar=log(p1hat+eps)-log(p3hat+eps)
+    # Z_i2hatstar=log(p2hat+eps)-log(p3hat+eps)
+    
+    Z_i1hatstar=log(p1hat)-log(p3hat)
+    Z_i2hatstar=log(p2hat)-log(p3hat)
+    
+    
+  }
+  
+
+
+  # p_i1hat=p_ihat(Z_i1hatstar,Z_i2hatstar)$p_1hatmatrix
+  # p_i2hat=p_ihat(Z_i1hatstar,Z_i2hatstar)$p_2hatmatrix
+  # p_i3hat=p_ihat(Z_i1hatstar,Z_i2hatstar)$p_3hatmatrix
+  
+  
+ p_i1hat=p1hat
+  p_i2hat=p2hat
+  p_i3hat=p3hat
+  
+
+  
+  # truel=list("Truecatcurve"=X_nt)
+  est=list("EstimateZ_i1"=Z_i1hatstar,"EstimateZ_i2"=Z_i2hatstar,"Estimatep_i1"=p_i1hat,"Estimatep_i2"=p_i2hat,"Estimatep_i3"=p_i3hat)
+  # return(list("Trueth"=truel,"Est"=est))
+  return(list("Est"=est))
+}
+
+
+
+##ramsay
+baysglm_resultram=function(datagenerated,M,datapoints,q=3,n,st,et,t){
+  datapoints=datapoints
+  # t=seq(from = st,to = et, length=datapoints)
+  t=t
+  st=st
+  et=et
+  Z_i1hatstar=datagenerated$Est$EstimateZ_i1
+  Z_i2hatstar=datagenerated$Est$EstimateZ_i2
+  n=dim(Z_i1hatstar)[1]
+  Zihatstar=array(c(Z_i1hatstar, Z_i2hatstar), c(n,datapoints,2))
+
+  fdarange = c(st, et)
+  fdabasis = fda::create.bspline.basis(fdarange, 25, 4)
+  fdatime = seq(st, et, length = datapoints)
+  Zihatstarnew = apply(Zihatstar, c(1, 3), t)
+  fdafd = fda::smooth.basis(fdatime, Zihatstarnew, fdabasis)$fd
+  nharm = M
+  fdapcaList = fda::pca.fd(fdafd, nharm)
+  
+  finalM=which(cumsum(fdapcaList$values)/sum(fdapcaList$values)>=0.95)[1]
+  fdapcaListfinal = fda::pca.fd(fdafd, finalM)
+  scores_z = apply(fdapcaListfinal$scores, c(1, 2), sum)
+  values=fdapcaListfinal$values
+  meanfn=fdapcaList$meanfd
+  eigenfn=fdapcaList$harmonics
+  
+  dims=dim(scores_z)[2]
+  if (dims<2){
+    #finalM=which(cumsum(fdapcaList$values)/sum(fdapcaList$values)>=0.98)[1]
+    finalM=2
+    fdapcaListfinal = fda::pca.fd(fdafd, finalM)
+    scores_z = apply(fdapcaListfinal$scores, c(1, 2), sum)
+    values=fdapcaListfinal$values
+    meanfn=fdapcaList$meanfd
+    eigenfn=fdapcaList$harmonics
+  }
+  
+  ##############FADP cluster
+   Zihatone= Z_i1hatstar
+  Zihattwo= Z_i2hatstar
+  
+  fdarange = c(st, et)
+  fdabasis = fda::create.bspline.basis(fdarange, 25, 4)
+  fdatime = seq(st, et, length = datapoints)
+  fdafd1 = fda::smooth.basis(fdatime, t(Zihatone), fdabasis)$fd
+  fdafd2 = fda::smooth.basis(fdatime, t(Zihattwo), fdabasis)$fd
+  FADlist=list(fdafd1,fdafd2)
+  FADP <- FADPclust(fdata = FADlist, cluster = 2:5, method = "FADP1",
+                    proportion = seq(0.02, 0.2, 0.02), f.cut = 0.15,
+                    pve = 0.9, stats = "Avg.silhouette")
+  FADPcluster=FADP$clust
+  
+  ##################
+  
+  
+  
+  return(list("scores"=scores_z,
+              "latentcurve"=Zihatstar,"eigenvalue"=values,"meanfn"=meanfn,
+              "eigenfn"=eigenfn,"FADPcluster"=FADPcluster))
+}
+
+```
+
+
+
+```{r}
+st=Sys.time()
+trueestf=get_estimate_latent(as.matrix(X_i1f),as.matrix(X_i2f),as.matrix(X_i3f),1,3,t)
+#trueestffadp=get_estimate_latent(as.matrix(X_i1f),as.matrix(X_i2f),as.matrix(X_i3f),1,3,t)
+et=Sys.time()
+et-st
+#Time difference of 17.44965 mins
+#Time difference of 12.04516 hours
+```
+
+```{r}
+save(trueestf,file="trueestf.RData")
+```
+
+
+
+
+
+```{r}
+st=Sys.time()
+#mfpcaramffadp=baysglm_resultram(trueestf,2,2000,q=3,3875,t[1],t[2000],seq(t[1],t[2000],length=2000))
+mfpcaramffadp=baysglm_resultram(trueestffadp,2,2000,q=3,3875,t[1],t[2000],seq(t[1],t[2000],length=2000))
+#save(trueestf,mfpcaramf,file="Twitterramfinalfinal.RData")
+save(trueestffadp,mfpcaramffadp,file="Twitterramfadp.RData")
+et=Sys.time()
+et-st
+#Time difference of 38.07698 mins
+```
+
+
+```{r}
+load("/Users/xzhao17/Documents/project1mac/Twitterramfadp.RData")
+#check scores
+scores_3875=mfpcaramffadp$scores
+plot(scores_3875[,1],scores_3875[,2])
+```
+```{r}
+#FADPcluster results
+fadpcluster=mfpcaramffadp$FADPcluster
+table(fadpcluster)
+```
+
+#graph by clusters FADP and DBSCAN
+```{r}
+#plotbycluster
+plot_latentfn_ylim=function(zlatent,phat,st,et,cluster,labelnum,argval,tclusterdata){
+  vectort=c(which(tclusterdata$Cluster==labelnum))
+  datapoints=dim(zlatent)[2]
+  
+  n=length(vectort)
+  ########################################################################################
+  
+  #plot 1: truth and smoothed
+  ########################################################################################
+  #entire block is  n*t dimension
+  #truth Z, P and smoothed Z, P
+  numz=dim(zlatent)[3]
+  nump=dim(phat)[3]
+  zest=zlatent[vectort,,]
+  pest=phat[vectort,,]
+  
+  #Z_i
+  #meanz=colMeans(zest)   #t*numz
+  # meanz=zmean
+  #meanfnZ[[1]]@X
+  meanz=colMeans(zest)
+  
+  ###########################################################################################
+  if (labelnum==0){
+      for (i in 1:numz){
+    matplot(argval, t(zest[,,i]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=mtext(bquote(" ")),
+            xlab="Day", ylab="",cex.lab = 2,cex.axis = 2,cex.main=2,xaxt="n",ylim=c())
+    lines(argval,meanz[,i] ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         at = c(0,476/2000,952/2000,1428/2000,1904/2000),cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","5","10","15","20")) }
+  #p_i
+  
+  meanp=colMeans(pest)   #t*nump
+  
+  for (i in 1:nump){
+    matplot(argval, t(pest[,,i]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('p')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('p')[i]))
+            main=mtext(bquote(" ")),
+            xlab="Day", ylab='',cex.lab = 2,cex.axis = 2,cex.main=2,xaxt="n")
+    
+    lines(argval,meanp[,i] ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,
+         at = c(0,476/2000,952/2000,1428/2000,1904/2000),cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","5","10","15","20"))
+     #legend(x = "topright",          # Position
+            
+    #legend = c("Individual", "Mean"),  # Legend texts
+            #lty = c(1, 2),           # Line types
+           #col = c("grey", "red"),           # Line colors
+           #lwd = 2)                 # Line width
+  }
+  }
+  
+  #################set ylim
+
+  
+  }
+
+
+```
+
+
+
+
+
+```{r}
+load("/Users/xzhao17/Downloads/project1mac/Twitterramf.RData")
+```
+
+```{r}
+load("/Users/xzhao17/Downloads/project1mac/Twitterramfpeps.RData")
+```
+
+
+```{r}
+#baysglm_result=function(datagenerated,M,datapoints,q=3,n,st,et,t)
+mfpcahapf=baysglm_result(trueestf,3,2000,q=3,3875,0.1,0.9,t)
+save(trueestf,mfpcahapf,file="Twitterhapf.RData")
+```
+
+```{r}
+load("/Users/xzhao17/Documents/project1mac/Twitterhapf.RData")
+```
+
+
+
+```{r}
+#combinedscore_z=mfpcaramf$scores
+combinedscore_z=scores_3875 #2D array you want to cluster
+#combinedscore_z=mfpcahapf$MFPCAZ$scoresZ
+dimz=dim(combinedscore_z)[2] #find how many features data has
+if (dimz<=2){minPts=4} #this is what user defined. if you could automatically find a good one.that might solve all my problem. nOW I use default value from literature minPts=4 for 2 features and 2*features+1 for data has more than 2 features
+if (dimz>2){minPts=2*dimz+1}
+library(dbscan)
+library(fossil)
+#devtools::install_github("ahasverus/elbow")
+library(elbow) #this library automatically select best epsilon
+library(pdfCluster)
+dist=kNNdist(combinedscore_z, k =minPts-1) #step 1 sort the distance. input 2D array you want to cluster, and then minPts-1
+#ninty5p=quantile(dist, probs = pct)
+scaleep=12.84  #this set to be 1, that is the scale you multiple the optimal epsilon, I set it to 12.84 just because of my twitter data is very noisy. this is the how much you want to multiple the optimal radius. increase the circle basically. instead of the optimal epsilon circle. I increase the circle so my cluster is meaingful otherwise if smalla circle, too many clusters are created
+#########change to max increase
+distdataelbow=data.frame(sort(dist)) #sort the distance
+distdataelbow$index=1:(dim(combinedscore_z)[1])
+ipoint <- elbow(data = distdataelbow)
+epsoptimal=(ipoint$sort.dist._selected)*scaleep #these three lines find the elbow 
+#epsoptimal=sortdist[which.max(diff(sortdist))]
+
+##############################
+
+#res <- dbscan(combinedscore_z, eps =ninty5p , minPts = minPts) minPts = 5
+res <- dbscan(combinedscore_z, eps =epsoptimal , minPts = 25) #then use epsilon, minPts to cluster
+
+#res <- dbscan(combinedscore_z, eps =ninty5p, minPts = 5)
+table(res$cluster)
+
+
+```
+
+
+
+```{r}
+tclusterdata=data.frame(combinedscore_z)
+tclusterdata$Cluster=as.factor(res$cluster)
+library(ggplot2)
+tps <- ggplot(tclusterdata,aes(X1,X2,colour = Cluster)) + geom_point(aes(shape=Cluster),size=3)+ggtitle(paste0("Twitter Users Cluster Results",'\n',"(",dim(tclusterdata)[1]," Subjects",")")) +
+  #xlab(expression('Score '* widehat(xi[i1]))) + ylab(expression('Score '* widehat(xi[i2])))
+  xlab('MFPCA Score1 ') + ylab('MFPCA Score2 ')+ theme(plot.title = element_text(hjust = 0.5))+#theme(text = element_text(size = 20))+
+  #theme(legend.text = element_text(size = 30))  
+  #theme(axis.text=element_text(size = 20),axis.title = element_text(size =30))
+  theme(text=element_text(size = 20))+theme(legend.position = c(0.92,0.8))
+tps
+
+```
+
+```{r}
+write.csv(res$cluster,file="twitter_3875_clusterlabel.csv")
+```
+
+
+
+#kemeans twitter all
+```{r}
+ reskmeansall = NbClust::NbClust(data =  combinedscore_z, diss = NULL,
+                               distance = "euclidean", min.nc = 2, max.nc = 5,
+                               method = "kmeans",index="silhouette")
+tclusterdataall=data.frame(combinedscore_z)
+tclusterdataall$Cluster=as.factor(reskmeansall$Best.partition)
+
+library(ggplot2)
+tpsall <- ggplot(tclusterdataall,aes(X1,X2,colour = Cluster)) + geom_point(aes(shape=Cluster),size=3)+ggtitle(paste0("K-means Cluster Results",'\n',"(",dim(tclusterdataall)[1]," Subjects",")")) +
+  #xlab(expression('Score '* widehat(xi[i1]))) + ylab(expression('Score '* widehat(xi[i2])))
+  xlab('MFPCA Score1 ') + ylab('MFPCA Score2 ')+ theme(plot.title = element_text(hjust = 0.5))+#theme(text = element_text(size = 20))+
+  #theme(legend.text = element_text(size = 30))  
+  #theme(axis.text=element_text(size = 20),axis.title = element_text(size =30))
+  theme(text=element_text(size = 20))
+tpsall
+```
+
+```{r}
+table(reskmeansall$Best.partition)
+```
+
+
+
+
+#without spike4
+```{r}
+library(dbscan)
+resnospike <- dbscan(combinedscore_z[-spiksub,], eps =epsoptimal , minPts = 25)
+
+tclusterdatanospke=data.frame(combinedscore_z[-spiksub,])
+tclusterdatanospke$Cluster=as.factor(resnospike$cluster)
+library(ggplot2)
+tpsnospike <- ggplot(tclusterdatanospke,aes(X1,X2,colour = Cluster)) + geom_point(aes(shape=Cluster),size=3)+ggtitle(paste0("Twitter Users Cluster Results",'\n',"(",dim(tclusterdatanospke)[1]," Subjects",")")) +
+  #xlab(expression('Score '* widehat(xi[i1]))) + ylab(expression('Score '* widehat(xi[i2])))
+  xlab('MFPCA Score1 ') + ylab('MFPCA Score2 ')+ theme(plot.title = element_text(hjust = 0.5))+#theme(text = element_text(size = 20))+
+  #theme(legend.text = element_text(size = 30))  
+  #theme(axis.text=element_text(size = 20),axis.title = element_text(size =30))
+  theme(text=element_text(size = 20))+theme(legend.position = c(0.92,0.8))
+tpsnospike
+```
+```{r}
+table(resnospike$cluster)
+```
+
+
+
+
+
+```{r}
+vec0=c(which(tclusterdata$Cluster==0))
+vec1=c(which(tclusterdata$Cluster==1))
+vec2=c(which(tclusterdata$Cluster==2))
+vec3=c(which(tclusterdata$Cluster==3))
+```
+
+
+#vec0
+```{r}
+par(mfrow=c(2,2))
+argval=t
+meanz=colMeans(trueestf$Est$EstimateZ_i1[vec0,])
+ matplot(t, t(trueestf$Est$EstimateZ_i1[vec0,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=mtext(bquote(" ")),
+            xlab="Day", ylab="",cex.lab = 2,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,10))
+    lines(argval,meanz ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+
+    meanz2=colMeans(trueestf$Est$EstimateZ_i2[vec0,])
+ matplot(t, t(trueestf$Est$EstimateZ_i2[vec0,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=mtext(bquote(" ")),
+            xlab="Day", ylab="",cex.lab = 2,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(-6,8))
+    lines(argval,meanz2 ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+    
+#######################################
+    par(mfrow=c(2,3))
+meanp=colMeans(trueestf$Est$Estimatep_i1[vec0,])
+ matplot(t, t(trueestf$Est$Estimatep_i1[vec0,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=mtext(bquote(" ")),
+            xlab="Day", ylab="",cex.lab = 2,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,1))
+    lines(argval,meanp ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+
+    meanp2=colMeans(trueestf$Est$Estimatep_i2[vec0,])
+ matplot(t, t(trueestf$Est$Estimatep_i2[vec0,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=mtext(bquote(" ")),
+            xlab="Day", ylab="",cex.lab = 2,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,1))
+    lines(argval,meanp2 ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+    
+    
+      meanp3=colMeans(trueestf$Est$Estimatep_i3[vec0,])
+ matplot(t, t(trueestf$Est$Estimatep_i3[vec0,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=mtext(bquote(" ")),
+            xlab="Day", ylab="",cex.lab = 2,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,1))
+    lines(argval,meanp3 ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+```
+
+#vec1
+```{r}
+par(mfrow=c(2,2))
+argval=t
+meanz=colMeans(trueestf$Est$EstimateZ_i1[vec1,])
+ matplot(t, t(trueestf$Est$EstimateZ_i1[vec1,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=mtext(bquote(" ")),
+            xlab="Day", ylab="",cex.lab = 2,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,10))
+    lines(argval,meanz ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+
+    meanz2=colMeans(trueestf$Est$EstimateZ_i2[vec1,])
+ matplot(t, t(trueestf$Est$EstimateZ_i2[vec1,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=mtext(bquote(" ")),
+            xlab="Day", ylab="",cex.lab = 2,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(-6,8))
+    lines(argval,meanz2 ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+    
+#######################################
+    par(mfrow=c(2,3))
+meanp=colMeans(trueestf$Est$Estimatep_i1[vec1,])
+ matplot(t, t(trueestf$Est$Estimatep_i1[vec1,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=mtext(bquote(" ")),
+            xlab="Day", ylab="",cex.lab = 2,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,1))
+    lines(argval,meanp ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+
+    meanp2=colMeans(trueestf$Est$Estimatep_i2[vec1,])
+ matplot(t, t(trueestf$Est$Estimatep_i2[vec1,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=mtext(bquote(" ")),
+            xlab="Day", ylab="",cex.lab = 2,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,1))
+    lines(argval,meanp2 ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+    
+    
+      meanp3=colMeans(trueestf$Est$Estimatep_i3[vec1,])
+ matplot(t, t(trueestf$Est$Estimatep_i3[vec1,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=mtext(bquote(" ")),
+            xlab="Day", ylab="",cex.lab = 2,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,1))
+    lines(argval,meanp3 ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+```
+
+
+
+
+
+
+
+
+
+#vec2
+```{r}
+par(mfrow=c(2,2))
+argval=t
+meanz=colMeans(trueestf$Est$EstimateZ_i1[vec2,])
+ matplot(t, t(trueestf$Est$EstimateZ_i1[vec2,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=mtext(bquote(" ")),
+            xlab="Day", ylab="",cex.lab = 2,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,10))
+    lines(argval,meanz ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+
+    meanz2=colMeans(trueestf$Est$EstimateZ_i2[vec2,])
+ matplot(t, t(trueestf$Est$EstimateZ_i2[vec2,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=mtext(bquote(" ")),
+            xlab="Day", ylab="",cex.lab = 2,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(-6,8))
+    lines(argval,meanz2 ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+    
+#######################################
+    par(mfrow=c(2,3))
+meanp=colMeans(trueestf$Est$Estimatep_i1[vec2,])
+ matplot(t, t(trueestf$Est$Estimatep_i1[vec2,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=mtext(bquote(" ")),
+            xlab="Day", ylab="",cex.lab = 2,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,1))
+    lines(argval,meanp ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+
+    meanp2=colMeans(trueestf$Est$Estimatep_i2[vec2,])
+ matplot(t, t(trueestf$Est$Estimatep_i2[vec2,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=mtext(bquote(" ")),
+            xlab="Day", ylab="",cex.lab = 2,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,1))
+    lines(argval,meanp2 ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+    
+    
+      meanp3=colMeans(trueestf$Est$Estimatep_i3[vec2,])
+ matplot(t, t(trueestf$Est$Estimatep_i3[vec2,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=mtext(bquote(" ")),
+            xlab="Day", ylab="",cex.lab = 2,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,1))
+    lines(argval,meanp3 ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+```
+
+
+#vec3
+```{r}
+par(mfrow=c(2,2))
+argval=t
+meanz=colMeans(trueestf$Est$EstimateZ_i1[vec3,])
+ matplot(t, t(trueestf$Est$EstimateZ_i1[vec3,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=mtext(bquote(" ")),
+            xlab="Day", ylab="",cex.lab = 2,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,10))
+    lines(argval,meanz ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+
+    meanz2=colMeans(trueestf$Est$EstimateZ_i2[vec3,])
+ matplot(t, t(trueestf$Est$EstimateZ_i2[vec3,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=mtext(bquote(" ")),
+            xlab="Day", ylab="",cex.lab = 2,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(-6,8))
+    lines(argval,meanz2 ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+    
+#######################################
+    par(mfrow=c(2,3))
+meanp=colMeans(trueestf$Est$Estimatep_i1[vec3,])
+ matplot(t, t(trueestf$Est$Estimatep_i1[vec3,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=mtext(bquote(" ")),
+            xlab="Day", ylab="",cex.lab = 2,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,1))
+    lines(argval,meanp ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+
+    meanp2=colMeans(trueestf$Est$Estimatep_i2[vec3,])
+ matplot(t, t(trueestf$Est$Estimatep_i2[vec3,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=mtext(bquote(" ")),
+            xlab="Day", ylab="",cex.lab = 2,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,1))
+    lines(argval,meanp2 ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+    
+    
+      meanp3=colMeans(trueestf$Est$Estimatep_i3[vec3,])
+ matplot(t, t(trueestf$Est$Estimatep_i3[vec3,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=mtext(bquote(" ")),
+            xlab="Day", ylab="",cex.lab = 2,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,1))
+    lines(argval,meanp3 ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+```
+
+#plot 4 rows and 5 columns cex 1.5
+
+```{r}
+par(mfrow=c(4,5))
+##vec1
+meanz=colMeans(trueestf$Est$EstimateZ_i1[vec1,])
+ matplot(t, t(trueestf$Est$EstimateZ_i1[vec1,]),
+            type='l', lty=1, col="light grey",
+            # cex.lab=1.5, cex.axis=2,lty=1, lwd=3,ylim=c(-12,3),main=expression(hat("Z")^2*(t)),cex.main=2
+            
+            main=expression(hat("Z")^1*(t)),
+            xlab="Day", ylab="",cex.lab = 1.5,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,10))
+    lines(argval,meanz ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 1.5,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+
+    meanz2=colMeans(trueestf$Est$EstimateZ_i2[vec1,])
+ matplot(t, t(trueestf$Est$EstimateZ_i2[vec1,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=expression(hat("Z")^2*(t)),
+            xlab="Day", ylab="",cex.lab = 1.5,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(-6,8))
+    lines(argval,meanz2 ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 1.5,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+    
+#######################################
+
+meanp=colMeans(trueestf$Est$Estimatep_i1[vec1,])
+ matplot(t, t(trueestf$Est$Estimatep_i1[vec1,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=expression(hat("p")^1*(t)),
+            xlab="Day", ylab="",cex.lab = 1.5,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,1))
+    lines(argval,meanp ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 1.5,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+
+    meanp2=colMeans(trueestf$Est$Estimatep_i2[vec1,])
+ matplot(t, t(trueestf$Est$Estimatep_i2[vec1,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=expression(hat("p")^2*(t)),
+            xlab="Day", ylab="",cex.lab = 1.5,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,1))
+    lines(argval,meanp2 ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 1.5,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+    
+    
+      meanp3=colMeans(trueestf$Est$Estimatep_i3[vec1,])
+ matplot(t, t(trueestf$Est$Estimatep_i3[vec1,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=expression(hat("p")^3*(t)),
+            xlab="Day", ylab="",cex.lab = 1.5,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,1))
+    lines(argval,meanp3 ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 1.5,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+##vec2
+argval=t
+meanz=colMeans(trueestf$Est$EstimateZ_i1[vec2,])
+ matplot(t, t(trueestf$Est$EstimateZ_i1[vec2,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=expression(hat("Z")^1*(t)),
+            xlab="Day", ylab="",cex.lab = 1.5,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,10))
+    lines(argval,meanz ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 1.5,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+
+    meanz2=colMeans(trueestf$Est$EstimateZ_i2[vec2,])
+ matplot(t, t(trueestf$Est$EstimateZ_i2[vec2,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=expression(hat("Z")^2*(t)),
+            xlab="Day", ylab="",cex.lab = 1.5,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(-6,8))
+    lines(argval,meanz2 ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 1.5,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+    
+#######################################
+
+meanp=colMeans(trueestf$Est$Estimatep_i1[vec2,])
+ matplot(t, t(trueestf$Est$Estimatep_i1[vec2,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=expression(hat("p")^1*(t)),
+            xlab="Day", ylab="",cex.lab = 1.5,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,1))
+    lines(argval,meanp ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 1.5,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+
+    meanp2=colMeans(trueestf$Est$Estimatep_i2[vec2,])
+ matplot(t, t(trueestf$Est$Estimatep_i2[vec2,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=expression(hat("p")^2*(t)),
+            xlab="Day", ylab="",cex.lab = 1.5,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,1))
+    lines(argval,meanp2 ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 1.5,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+    
+    
+      meanp3=colMeans(trueestf$Est$Estimatep_i3[vec2,])
+ matplot(t, t(trueestf$Est$Estimatep_i3[vec2,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=expression(hat("p")^3*(t)),
+            xlab="Day", ylab="",cex.lab = 1.5,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,1))
+    lines(argval,meanp3 ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 1.5,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+#vec3
+meanz=colMeans(trueestf$Est$EstimateZ_i1[vec3,])
+ matplot(t, t(trueestf$Est$EstimateZ_i1[vec3,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=expression(hat("Z")^1*(t)),
+            xlab="Day", ylab="",cex.lab = 1.5,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,10))
+    lines(argval,meanz ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 1.5,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+
+    meanz2=colMeans(trueestf$Est$EstimateZ_i2[vec3,])
+ matplot(t, t(trueestf$Est$EstimateZ_i2[vec3,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=expression(hat("Z")^2*(t)),
+            xlab="Day", ylab="",cex.lab = 1.5,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(-6,8))
+    lines(argval,meanz2 ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 1.5,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+    
+#######################################
+meanp=colMeans(trueestf$Est$Estimatep_i1[vec3,])
+ matplot(t, t(trueestf$Est$Estimatep_i1[vec3,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=expression(hat("p")^1*(t)),
+            xlab="Day", ylab="",cex.lab = 1.5,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,1))
+    lines(argval,meanp ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 1.5,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+
+    meanp2=colMeans(trueestf$Est$Estimatep_i2[vec3,])
+ matplot(t, t(trueestf$Est$Estimatep_i2[vec3,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=expression(hat("p")^2*(t)),
+            xlab="Day", ylab="",cex.lab = 1.5,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,1))
+    lines(argval,meanp2 ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 1.5,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+    
+    
+      meanp3=colMeans(trueestf$Est$Estimatep_i3[vec3,])
+ matplot(t, t(trueestf$Est$Estimatep_i3[vec3,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=expression(hat("p")^3*(t)),
+            xlab="Day", ylab="",cex.lab = 1.5,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,1))
+    lines(argval,meanp3 ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+#vec0
+meanz=colMeans(trueestf$Est$EstimateZ_i1[vec0,])
+ matplot(t, t(trueestf$Est$EstimateZ_i1[vec0,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=expression(hat("Z")^1*(t)),
+            xlab="Day", ylab="",cex.lab = 1.5,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,10))
+    lines(argval,meanz ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 1.5,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+
+    meanz2=colMeans(trueestf$Est$EstimateZ_i2[vec0,])
+ matplot(t, t(trueestf$Est$EstimateZ_i2[vec0,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+  # cex.lab=1.5, cex.axis=2,lty=1, lwd=3,ylim=c(-12,3),main=expression(hat("Z")^2*(t)),cex.main=2          main=mtext(bquote(" ")),
+            xlab="Day",main=expression(hat("Z")^2*(t)), ylab="",cex.lab = 1.5,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(-6,8))
+    lines(argval,meanz2 ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 1.5,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+    
+#######################################
+meanp=colMeans(trueestf$Est$Estimatep_i1[vec0,])
+ matplot(t, t(trueestf$Est$Estimatep_i1[vec0,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=expression(hat("p")^1*(t)),
+            xlab="Day", ylab="",cex.lab = 1.5,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,1))
+    lines(argval,meanp ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 1.5,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+
+    meanp2=colMeans(trueestf$Est$Estimatep_i2[vec0,])
+ matplot(t, t(trueestf$Est$Estimatep_i2[vec0,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=expression(hat("p")^2*(t)),
+            xlab="Day", ylab="",cex.lab = 1.5,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,1))
+    lines(argval,meanp2 ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 1.5,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+    
+    
+      meanp3=colMeans(trueestf$Est$Estimatep_i3[vec0,])
+ matplot(t, t(trueestf$Est$Estimatep_i3[vec0,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=expression(hat("p")^3*(t)),
+            xlab="Day", ylab="",cex.lab = 1.5,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,1))
+    lines(argval,meanp3 ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 1.5,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+```
+
+#just p3 for all clusters #cex.lab=1.5
+```{r}
+par(mfrow=c(3,4))
+#cluster 1, cluster 2, cluster 3, noise 
+#vec1
+ meanp3=colMeans(trueestf$Est$Estimatep_i3[vec1,])
+ matplot(t, t(trueestf$Est$Estimatep_i3[vec1,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+           
+            xlab="Day", ylab="",cex.lab = 1.5,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,0.01),main="Cluster One")
+    lines(argval,meanp3 ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 1.5,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+#vec2
+     meanp3=colMeans(trueestf$Est$Estimatep_i3[vec2,])
+ matplot(t, t(trueestf$Est$Estimatep_i3[vec2,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+           
+            xlab="Day", ylab="",cex.lab = 1.5,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,0.3),main="Cluster Two")
+    lines(argval,meanp3 ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 1.5,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+  #vec3
+     meanp3=colMeans(trueestf$Est$Estimatep_i3[vec3,])
+ matplot(t, t(trueestf$Est$Estimatep_i3[vec3,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+           
+            xlab="Day", ylab="",cex.lab = 1.5,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,0.3),main="Cluster Three")
+    lines(argval,meanp3 ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30"))
+  #vec0
+ meanp3=colMeans(trueestf$Est$Estimatep_i3[vec0,])
+ matplot(t, t(trueestf$Est$Estimatep_i3[vec0,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main="Noise Group",
+            xlab="Day", ylab="",cex.lab = 2,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,0.3))
+    lines(argval,meanp3 ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+```
+
+
+
+#just p3 for all clusters #cex.lab=2
+```{r}
+par(mfrow=c(1,4))
+#cluster 1, cluster 2, cluster 3, noise 
+#vec1
+ meanp3=colMeans(trueestf$Est$Estimatep_i3[vec1,])
+ matplot(t, t(trueestf$Est$Estimatep_i3[vec1,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+           
+            xlab="Day", ylab="",cex.lab = 2,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,0.01),main="Cluster One")
+    lines(argval,meanp3 ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 1.5,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+#vec2
+     meanp3=colMeans(trueestf$Est$Estimatep_i3[vec2,])
+ matplot(t, t(trueestf$Est$Estimatep_i3[vec2,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+           
+            xlab="Day", ylab="",cex.lab = 2,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,0.3),main="Cluster Two")
+    lines(argval,meanp3 ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 1.5,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+  #vec3
+     meanp3=colMeans(trueestf$Est$Estimatep_i3[vec3,])
+ matplot(t, t(trueestf$Est$Estimatep_i3[vec3,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+           
+            xlab="Day", ylab="",cex.lab = 2,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,0.3),main="Cluster Three")
+    lines(argval,meanp3 ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30"))
+  #vec0
+ meanp3=colMeans(trueestf$Est$Estimatep_i3[vec0,])
+ matplot(t, t(trueestf$Est$Estimatep_i3[vec0,]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main="Noise Group",
+            xlab="Day", ylab="",cex.lab = 2,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,0.3))
+    lines(argval,meanp3 ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+```
+
+
+
+
+```{r}
+vec1fadp=c(which(fadpcluster==1))
+vec2fadp=c(which(fadpcluster==2))
+```
+
+
+
+
+
+```{r}
+#plotbycluster
+plot_latentfn=function(zlatent,phat,st,et,cluster,labelnum,argval,tclusterdata){
+  vectort=c(which(tclusterdata$Cluster==labelnum))
+  datapoints=dim(zlatent)[2]
+  
+  n=length(vectort)
+  ########################################################################################
+  
+  #plot 1: truth and smoothed
+  ########################################################################################
+  #entire block is  n*t dimension
+  #truth Z, P and smoothed Z, P
+  numz=dim(zlatent)[3]
+  nump=dim(phat)[3]
+  zest=zlatent[vectort,,]
+  pest=phat[vectort,,]
+  
+  #Z_i
+  #meanz=colMeans(zest)   #t*numz
+  # meanz=zmean
+  #meanfnZ[[1]]@X
+  meanz=colMeans(zest)
+  for (i in 1:numz){
+    
+        matplot(argval, t(zest[,,i]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=mtext(bquote(" ")),
+            xlab="Day", ylab="",cex.lab = 2,cex.axis = 2,cex.main=2,xaxt="n")
+    lines(argval,meanz[,i] ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         at = c(0,476/2000,952/2000,1428/2000,1904/2000),cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","5","10","15","20")) 
+    
+    
+  
+   
+    
+    
+    
+    }
+  #p_i
+  
+  meanp=colMeans(pest)   #t*nump
+  
+  for (i in 1:nump){
+    matplot(argval, t(pest[,,i]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('p')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('p')[i]))
+            main=mtext(bquote(" ")),
+            xlab="Day", ylab='',cex.lab = 2,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,1))
+    
+    lines(argval,meanp[,i] ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,
+         at = c(0,476/2000,952/2000,1428/2000,1904/2000),cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","5","10","15","20"))
+     #legend(x = "topright",          # Position
+            
+    #legend = c("Individual", "Mean"),  # Legend texts
+            #lty = c(1, 2),           # Line types
+           #col = c("grey", "red"),           # Line colors
+           #lwd = 2)                 # Line width
+  }
+  
+  }
+
+
+
+```
+
+
+```{r}
+zlatentf=array(c(t(mfpcahapf$MFPCAZ$z1),t(mfpcahapf$MFPCAZ$z2)),dim=c(3875,2000,2))
+phatf=array(c(trueestf$Est$Estimatep_i1,trueestf$Est$Estimatep_i2,trueestf$Est$Estimatep_i3),
+           dim=c(3875,2000,3))
+
+```
+
+
+```{r}
+zlatentf=array(c(trueestf$Est$EstimateZ_i1,trueestf$Est$EstimateZ_i2),dim=c(3875,2000,2))
+phatf=array(c(trueestf$Est$Estimatep_i1,trueestf$Est$Estimatep_i2,trueestf$Est$Estimatep_i3),
+           dim=c(3875,2000,3))
+```
+
+
+
+```{r}
+plot_latentfn(zlatentf,phatf,
+              0,1,tclusterdata$Cluster,0,t,tclusterdata)
+```
+
+
+
+
+
+
+
+# subject 2467 
+```{r}
+vec0
+
+```
+
+```{r}
+length(vec1)
+```
+
+
+```{r}
+c(trueestf$Est$Estimatep_i3[vec1,])[2203763]
+```
+
+
+```{r}
+as.vector(which(trueestf$Est$Estimatep_i3[vec1,]==c(trueestf$Est$Estimatep_i3[vec1,])[2203763],arr.ind=TRUE))
+```
+
+```{r}
+vec1[199]
+```
+
+
+
+
+```{r}
+matplot(t,trueestf$Est$Estimatep_i3[vec1[199],],ylim=c(0,1))
+```
+
+
+
+```{r}
+which(trueestf$Est$Estimatep_i3[vec1,]>0.6)
+
+```
+
+
+
+
+```{r}
+dim(trueestf$Est$Estimatep_i3[vec1,])
+```
+
+
+
+```{r}
+2203763/3284
+```
+
+```{r}
+2203763/3875
+```
+
+
+
+
+
+```{r}
+vec1[1090:1110]
+```
+
+
+
+```{r}
+which(trueestf$Est$Estimatep_i3[vec0,]>0.6)
+```
+
+```{r}
+11*2000
+```
+
+```{r}
+12*2000
+```
+
+
+
+
+
+
+
+
+```{r}
+matplot(t,t(trueestf$Est$Estimatep_i3[vec0,]),ylab="Value",cex.lab = 2,cex.axis = 2,cex.main=2, xlab="Day",xaxt="n")
+ axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+```
+
+```{r}
+for (i in 1:length(vec0)){
+  matplot(t,trueestf$Est$Estimatep_i3[vec0[i],],ylim=c(0,1))
+}
+```
+```{r}
+par(mfrow=c(2,2))
+matplot(t,trueestf$Est$Estimatep_i3[vec0[11],],ylim=c(0,1),ylab="Value",cex.lab = 2,cex.axis = 2,cex.main=2, xlab="Day",xaxt="n",main=paste0("Third Probability Curve for subject ",vec0[11]))
+axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+```
+
+#vec2: subject 2309, subject 2721
+```{r}
+vec3
+```
+
+```{r}
+ matplot(t,trueestf$Est$Estimatep_i2[2721,],ylim=c(0,1))
+```
+
+```{r}
+ matplot(t,trueestf$Est$Estimatep_i2[2309,],ylim=c(0,1))
+```
+
+
+
+```{r}
+for (i in 1:length(vec3)){
+  matplot(t,trueestf$Est$Estimatep_i2[vec3[i],],ylim=c(0,1))
+}
+```
+
+```{r}
+spiksub=c(2467,2309,2721,287)
+```
+
+
+
+
+```{r}
+unlist(c(unname(X_i3f[spiksub[1],])))
+```
+```{r}
+unlist(c(unname(X_i3f[spiksub[1],1000:2000])))
+```
+
+
+
+
+
+```{r}
+par(mfrow=c(2,2))
+matplot(t,t(trueestf$Est$EstimateZ_i1[spiksub,]),col=c("black","red","green","blue"),ylim=c(0,10), xlab="Day", ylab='',cex.lab = 2,cex.axis = 2,cex.main=2,xaxt="n",main="First Latent Curves")
+axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+matplot(t,t(trueestf$Est$EstimateZ_i2[spiksub,]),col=c("black","red","green","blue"),ylim=c(-5,8), xlab="Day", ylab='',cex.lab = 2,cex.axis = 2,cex.main=2,xaxt="n",main="Second Latent Curves")
+axis(1,                         # Define x-axis manually
+         #at = c(0,476/2000,952/2000,1428/2000,1904/2000),
+         at = c(0,400/2000,800/2000,1200/2000,1600/2000,2000/2000),
+         cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","6","12","18","24","30")) 
+#legend("topright", inset=c(-0.2,0), legend=c(paste0("Sub",spiksub)),col=c("black","red","green","blue"), title="Subjects")
+```
+
+```{r}
+#table(unlist(c(unname(X_i1f[spiksub[1],1:10]))))
+#2467,2309,2721
+paste0("subject",spiksub[1])
+table(unlist(c(unname(X_i1f[spiksub[1],]))))
+table(unlist(c(unname(X_i2f[spiksub[1],]))))
+table(unlist(c(unname(X_i3f[spiksub[1],]))))
+
+paste0("subject",spiksub[2])
+table(unlist(c(unname(X_i1f[spiksub[2],]))))
+table(unlist(c(unname(X_i2f[spiksub[2],]))))
+table(unlist(c(unname(X_i3f[spiksub[2],]))))
+
+paste0("subject",spiksub[3])
+table(unlist(c(unname(X_i1f[spiksub[3],]))))
+table(unlist(c(unname(X_i2f[spiksub[3],]))))
+table(unlist(c(unname(X_i3f[spiksub[3],]))))
+```
+
+```{r}
+
+paste0("subject",spiksub[4])
+table(unlist(c(unname(X_i1f[spiksub[4],]))))
+table(unlist(c(unname(X_i2f[spiksub[4],]))))
+table(unlist(c(unname(X_i3f[spiksub[4],]))))
+```
+
+
+
+
+
+```{r}
+7522960 /3875
+```
+
+```{r}
+221861 /3875
+```
+
+```{r}
+5179 /3875
+```
+
+
+
+```{r}
+3875*2000
+```
+
+
+```{r}
+7522960/7750000
+```
+
+```{r}
+221861/7750000
+```
+
+```{r}
+5179/7750000
+```
+
+```{r}
+7522960 +221861+5179 
+```
+
+
+```{r}
+table(unlist(c(unname(X_i1f))))
+```
+
+```{r}
+table(unlist(c(unname(X_i2f))))
+```
+
+
+
+```{r}
+table(unlist(c(unname(X_i3f))))
+```
+
+
+
+
+
+```{r}
+matplot(t,t(trueestf$Est$Estimatep_i3[vec0,]),type='l', lty=1,
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('p')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('p')[i]))
+            main=mtext(bquote(" ")),
+            xlab="Day", ylab='',cex.lab = 2,cex.axis = 2,cex.main=2,xaxt="n",ylim=c(0,1))
+ axis(1,                         # Define x-axis manually
+         at = c(0,476/2000,952/2000,1428/2000,1904/2000),cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","5","10","15","20")) 
+    
+```
+
+
+
+
+```{r}
+17*2000
+```
+
+
+
+```{r}
+plot_latentfn(zlatentf,phatf,
+              0,1,tclusterdata$Cluster,1,t,tclusterdata)
+
+```
+
+
+```{r}
+plot_latentfn(zlatentf,phatf,
+              0,1,tclusterdata$Cluster,2,t,tclusterdata)
+```
+
+
+```{r}
+plot_latentfn(zlatentf,phatf,
+              0,1,tclusterdata$Cluster,3,t,tclusterdata)
+```
+
+
+```{r}
+plot_latentfn_fadp(zlatentf,phatf,
+              0,1,fadpcluster,1,t,fadpcluster)
+```
+
+```{r}
+
+```
+
+
+
+
+```{r}
+plot_latentfn_fadp(zlatentf,phatf,
+              0,1,fadpcluster,2,t,fadpcluster)
+```
+
+
+
+
+```{r}
+plot_latentfn_fadp=function(zlatent,phat,st,et,cluster,labelnum,argval,fadpcluster){
+  vectort=c(which(fadpcluster==labelnum))
+  datapoints=dim(zlatent)[2]
+  
+  
+  n=length(vectort)
+  ########################################################################################
+  
+  #plot 1: truth and smoothed
+  ########################################################################################
+  #entire block is  n*t dimension
+  #truth Z, P and smoothed Z, P
+  numz=dim(zlatent)[3]
+  nump=dim(phat)[3]
+  zest=zlatent[vectort,,]
+  pest=phat[vectort,,]
+  
+  #Z_i
+  #meanz=colMeans(zest)   #t*numz
+  # meanz=zmean
+  #meanfnZ[[1]]@X
+  meanz=colMeans(zest)
+  for (i in 1:numz){
+    matplot(argval, t(zest[,,i]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('Z')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('Z')[i]))
+            
+            main=mtext(bquote(" ")),
+            xlab="Day", ylab="",cex.lab = 2,cex.axis = 2,cex.main=2,xaxt="n")
+    lines(argval,meanz[,i] ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,                         # Define x-axis manually
+         at = c(0,476/2000,952/2000,1428/2000,1904/2000),cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","5","10","15","20")) }
+  #p_i
+  
+  meanp=colMeans(pest)   #t*nump
+  
+  for (i in 1:nump){
+    matplot(argval, t(pest[,,i]),
+            type='l', lty=1, col="light grey",
+            #main=mtext(bquote("Estimated Latent Cruve "*widehat('p')[i])),
+            #xlab="Number of Datapoints", ylab=expression(widehat('p')[i]))
+            main=mtext(bquote(" ")),
+            xlab="Day", ylab='',cex.lab = 2,cex.axis = 2,cex.main=2,xaxt="n")
+    
+    lines(argval,meanp[,i] ,
+          type='l', lty=2, lwd=2, col = "red")
+    axis(1,
+         at = c(0,476/2000,952/2000,1428/2000,1904/2000),cex.lab = 2,cex.axis = 2,cex.main=2,
+         labels = c("0","5","10","15","20"))
+     #legend(x = "topright",          # Position
+            
+    #legend = c("Individual", "Mean"),  # Legend texts
+            #lty = c(1, 2),           # Line types
+           #col = c("grey", "red"),           # Line colors
+           #lwd = 2)                 # Line width
+  }
+  
+  }
+
+
+
+```
+#15 minutes
+
+```{r}
+Z_ihat=function(Curves_train,tt){
+  N_train=dim(as.matrix(Curves_train))[1]
+  vec = matrix(1:(N_train), ncol = 1)
+  smoothed_x = logit(t(apply(vec, 1, function(x) regression_g(x, as.matrix(Curves_train), tt))))
+  smoothed_x
+}
+
+probc=function(Curves_train,tt){
+  N_train=dim(as.matrix(Curves_train))[1]
+  vec = matrix(1:(N_train), ncol = 1)
+  smoothed_p = t(apply(vec, 1, function(x) regression_g(x, as.matrix(Curves_train), tt)))
+  smoothed_p
+}
+
+p_ihat=function(Z_i1app,Z_i2app){
+  denom=(1+exp(Z_i1app)+exp(Z_i2app))
+  p_i1h=exp(Z_i1app)/denom
+  p_i2h=exp(Z_i2app)/denom
+  p_i3h=1/denom
+  # p_i3h=1-p_i1h- p_i2h
+  return(list("p_1hatmatrix"=p_i1h,"p_2hatmatrix"=p_i2h,"p_3hatmatrix"=p_i3h))
+}
+########################################################################################################################
+
+#####################################################################################################
+# 4//6/ 2022
+##
+#Step 1 of the proposed method in Anthony paper one: smoothing using link function
+##
+
+#New function to output predicted L latent probability curves:
+#input observed X_i1 or X_i2 binary curves and return smoothed p_i1hat, p_i2hat
+
+
+#########################################################################################################
+
+
+
+
+
+#n number of subjects
+#datapoints
+#sparse=1 yes   sparse=0 no
+#scorevar=2 bigger var , scorevar=1 smaller var
+#ps=1 find z1,z2,z3, find p1,p2,p3, logp1-logp3
+#ps=2 find z1,z2,z3, find p1,p2,p3=1-p1-p2 logp1-logp3
+#ps=3 find z1,z2 staicu find z1hat z2hat
+#ps=4 find z1,z2 staicu find z1hat z2hat but only use numerator
+#k  #number of eigen functions
+#q  #level of the categorical level
+# datapoints=dim(X_i1)[2]
+# n=dim(X_i1)[1]
+
+#datapoints=dim(X_i1f)[2]
+# n=dim(X_i1_15m)[1]
+# # st=as.numeric(colnames(X_i1))[1]
+# st=as.numeric(colnames(X_i1))[1]
+# # et=tail(as.numeric(colnames(X_i1)),n=1)
+# et=tail(as.numeric(colnames(X_i1f)),n=1)
+# t=as.numeric(colnames(X_i1f))
+get_estimate_latent=function(X_i1,X_i2,X_i3,ps,k,t){
+  
+  k=k
+  
+  #k=3  #number of eigen functions
+  q=3  #level of the categorical level
+  # n=10 #number of subjects
+  
+  
+  ##############################
+  
+  # #recover Z_i1 hat using Z_i[1,all j, all n] only related to p1. n*t
+  p1hat=probc(X_i1,t)
+  #recover Z_i2 hat using X_i[2,all j, all n] only related to p2
+  p2hat=probc(X_i2,t)
+  p3hat=probc(X_i3,t)
+  
+
+  if(ps==1){ 
+  
+    Z_i1hatstar=log(p1hat)-log(p3hat)
+    Z_i2hatstar=log(p2hat)-log(p3hat)
+    
+    
+  }
+  
+ p_i1hat=p1hat
+  p_i2hat=p2hat
+  p_i3hat=p3hat
+  
+
+  
+  # truel=list("Truecatcurve"=X_nt)
+  est=list("EstimateZ_i1"=Z_i1hatstar,"EstimateZ_i2"=Z_i2hatstar,"Estimatep_i1"=p_i1hat,"Estimatep_i2"=p_i2hat,"Estimatep_i3"=p_i3hat)
+  # return(list("Trueth"=truel,"Est"=est))
+  return(list("Est"=est))
+}
+
+
+
+##ramsay
+baysglm_resultram=function(datagenerated,M,datapoints,q=3,n,st,et,t){
+  datapoints=datapoints
+  # t=seq(from = st,to = et, length=datapoints)
+  t=t
+  st=st
+  et=et
+  Z_i1hatstar=datagenerated$Est$EstimateZ_i1
+  Z_i2hatstar=datagenerated$Est$EstimateZ_i2
+  n=dim(Z_i1hatstar)[1]
+  Zihatstar=array(c(Z_i1hatstar, Z_i2hatstar), c(n,datapoints,2))
+
+  fdarange = c(st, et)
+  fdabasis = fda::create.bspline.basis(fdarange, 25, 4)
+  fdatime = seq(st, et, length = datapoints)
+  Zihatstarnew = apply(Zihatstar, c(1, 3), t)
+  fdafd = fda::smooth.basis(fdatime, Zihatstarnew, fdabasis)$fd
+  nharm = M
+  fdapcaList = fda::pca.fd(fdafd, nharm)
+  
+  finalM=which(cumsum(fdapcaList$values)/sum(fdapcaList$values)>=0.95)[1]
+  fdapcaListfinal = fda::pca.fd(fdafd, finalM)
+  scores_z = apply(fdapcaListfinal$scores, c(1, 2), sum)
+  values=fdapcaListfinal$values
+  meanfn=fdapcaList$meanfd
+  eigenfn=fdapcaList$harmonics
+  
+  dims=dim(scores_z)[2]
+  if (dims<2){
+    #finalM=which(cumsum(fdapcaList$values)/sum(fdapcaList$values)>=0.98)[1]
+    finalM=2
+    fdapcaListfinal = fda::pca.fd(fdafd, finalM)
+    scores_z = apply(fdapcaListfinal$scores, c(1, 2), sum)
+    values=fdapcaListfinal$values
+    meanfn=fdapcaList$meanfd
+    eigenfn=fdapcaList$harmonics
+  }
+  
+  ##############FADP cluster
+   Zihatone= Z_i1hatstar
+  Zihattwo= Z_i2hatstar
+  
+  fdarange = c(st, et)
+  fdabasis = fda::create.bspline.basis(fdarange, 25, 4)
+  fdatime = seq(st, et, length = datapoints)
+  fdafd1 = fda::smooth.basis(fdatime, t(Zihatone), fdabasis)$fd
+  fdafd2 = fda::smooth.basis(fdatime, t(Zihattwo), fdabasis)$fd
+  FADlist=list(fdafd1,fdafd2)
+  FADP <- FADPclust(fdata = FADlist, cluster = 2:5, method = "FADP1",
+                    proportion = seq(0.02, 0.2, 0.02), f.cut = 0.15,
+                    pve = 0.9, stats = "Avg.silhouette")
+  FADPcluster=FADP$clust
+  
+  ##################
+  
+  
+  
+  return(list("scores"=scores_z,
+              "latentcurve"=Zihatstar,"eigenvalue"=values,"meanfn"=meanfn,
+              "eigenfn"=eigenfn,"FADPcluster"=FADPcluster))
+}
+
+```
+
+
+```{r}
+st=Sys.time()
+#trueestf=get_estimate_latent(as.matrix(X_i1f),as.matrix(X_i2f),as.matrix(X_i3f),1,3,t)
+trueestffadp_15min=get_estimate_latent(as.matrix(X_i1_15m),as.matrix(X_i2_15m),as.matrix(X_i3_15m),1,3,t_15min)
+et=Sys.time()
+et-st #Time difference of 1.113632 hours
+```
+
+
+```{r}
+st=Sys.time()
+#mfpcaramffadp=baysglm_resultram(trueestf,2,2000,q=3,3875,t[1],t[2000],seq(t[1],t[2000],length=2000))
+mfpcaramffadp_15min=baysglm_resultram(trueestffadp_15min,2,2000,q=3,3875,t_15min[1],t_15min[2000],t_15min)
+#save(trueestf,mfpcaramf,file="Twitterramfinalfinal.RData")
+save(trueestffadp_15min,mfpcaramffadp_15min,file="Twitterramfadp_15min.RData")
+et=Sys.time()
+et-st
+```
+
+
+```{r}
+combinedscore_z=mfpcaramffadp_15min$scores #2D array you want to cluster
+#combinedscore_z=mfpcahapf$MFPCAZ$scoresZ
+dimz=dim(combinedscore_z)[2] #find how many features data has
+if (dimz<=2){minPts=4} #this is what user defined. if you could automatically find a good one.that might solve all my problem. nOW I use default value from literature minPts=4 for 2 features and 2*features+1 for data has more than 2 features
+if (dimz>2){minPts=2*dimz+1}
+library(dbscan)
+library(fossil)
+#devtools::install_github("ahasverus/elbow")
+library(elbow) #this library automatically select best epsilon
+library(pdfCluster)
+dist=kNNdist(combinedscore_z, k =minPts-1) #step 1 sort the distance. input 2D array you want to cluster, and then minPts-1
+#ninty5p=quantile(dist, probs = pct)
+scaleep=12.84  #this set to be 1, that is the scale you multiple the optimal epsilon, I set it to 12.84 just because of my twitter data is very noisy. this is the how much you want to multiple the optimal radius. increase the circle basically. instead of the optimal epsilon circle. I increase the circle so my cluster is meaingful otherwise if smalla circle, too many clusters are created
+#########change to max increase
+distdataelbow=data.frame(sort(dist)) #sort the distance
+distdataelbow$index=1:(dim(combinedscore_z)[1])
+ipoint <- elbow(data = distdataelbow)
+epsoptimal=(ipoint$sort.dist._selected)*scaleep #these three lines find the elbow 
+#epsoptimal=sortdist[which.max(diff(sortdist))]
+
+##############################
+
+#res <- dbscan(combinedscore_z, eps =ninty5p , minPts = minPts) minPts = 5
+res <- dbscan(combinedscore_z, eps =epsoptimal , minPts = 25) #then use epsilon, minPts to cluster
+
+#res <- dbscan(combinedscore_z, eps =ninty5p, minPts = 5)
+table(res$cluster)
+
+```
+
+
+```{r}
+tclusterdata=data.frame(combinedscore_z)
+tclusterdata$Cluster=as.factor(res$cluster)
+library(ggplot2)
+tps <- ggplot(tclusterdata,aes(X1,X2,colour = Cluster)) + geom_point(aes(shape=Cluster),size=3)+ggtitle(paste0("Twitter Users Cluster Results",'\n',"(",dim(tclusterdata)[1]," Subjects",")")) +
+  #xlab(expression('Score '* widehat(xi[i1]))) + ylab(expression('Score '* widehat(xi[i2])))
+  xlab('MFPCA Score1 ') + ylab('MFPCA Score2 ')+ theme(plot.title = element_text(hjust = 0.5))+#theme(text = element_text(size = 20))+
+  #theme(legend.text = element_text(size = 30))  
+  #theme(axis.text=element_text(size = 20),axis.title = element_text(size =30))
+  theme(text=element_text(size = 20))+theme(legend.position = c(0.92,0.8))
+```
+
+
+```{r}
+#3875 in total
+#February 14, 2017 to March 16, 2017, Tuesday, Thursday
+#first read the three values and make W
+X_i1_full <- load("/Users/xzhao17/Documents/GitHub/xc_cj_clustering_cfd/R/submission_code/X_i1full.RData")
+X_i2_full <- load("/Users/xzhao17/Documents/GitHub/xc_cj_clustering_cfd/R/submission_code/X_i2full.RData")
+X_i3_full <- load("/Users/xzhao17/Documents/GitHub/xc_cj_clustering_cfd/R/submission_code/X_i3full.RData")
+no_tweet_data <- X_i1f
+tweet_no_mention_data <- X_i2f
+tweet_mention_data <- X_i3f
+
+```
+
+```{r}
+rm(X_i1f)
+rm(X_i2f)
+rm(X_i3f)
+```
+
+
+```{r}
+rare_event_no_mention <- apply(tweet_no_mention_data,1, function(x) {sum(x)/dim(tweet_no_mention_data)[2]})
+length(which(rare_event_no_mention<=0.04))
+length(which(rare_event_no_mention<=0.04))/dim(no_tweet_data)[1]
+```
+
+```{r}
+rare_event_no_mention <- apply(tweet_no_mention_data,1, function(x) {sum(x)/dim(tweet_no_mention_data)[2]})
+length(which(rare_event_no_mention<=0.004))
+length(which(rare_event_no_mention<=0.004))/dim(no_tweet_data)[1]
+```
+
+
+```{r}
+rare_event_mention <- apply(tweet_mention_data,1, function(x) {sum(x)/dim(tweet_mention_data)[2]})
+length(which(rare_event_mention<=0.004))
+length(which(rare_event_mention<=0.004))/dim(no_tweet_data)[1]
+```
+
+
+```{r}
+dim(no_tweet_data)[1]
+```
+
+```{r}
+dim(no_tweet_data)[1]-length(which(rare_event_mention<=0.004))
+```
+
+
+
+```{r}
+2000*0.004
+```
+
+```{r}
+length(which(rare_event_no_mention<=0.001))
+length(which(rare_event_no_mention<=0.001))/dim(no_tweet_data)[1]
+```
+
+```{r}
+1/150
+```
+```{r}
+1/300
+```
+
+
+
+```{r}
+rare_event_no_mention <- apply(tweet_no_mention_data,1, function(x) {sum(x)/dim(tweet_no_mention_data)[2]})
+length(which(rare_event_no_mention<=0.1))
+length(which(rare_event_no_mention<=0.1))/dim(no_tweet_data)[1]
+```
+
+
+
+```{r}
+rare_event <- apply(tweet_mention_data,1, function(x) {sum(x)/dim(tweet_mention_data)[2]})
+length(which(rare_event<=0.04))
+length(which(rare_event<=0.04))/dim(no_tweet_data)[1]
+```
+
+```{r}
+rare_event_count <- apply(tweet_mention_data,1, function(x) {sum(x)})
+length(which(rare_event_count<=20))
+length(which(rare_event_count<=20))/dim(no_tweet_data)[1]
+```
+
+```{r}
+20/2000
+```
+
+```{r}
+40/2000
+```
+
+
+```{r}
+rare_event_count <- apply(tweet_mention_data,1, function(x) {sum(x)})
+length(which(rare_event_count<=10))
+
+length(which(rare_event_count<=10))/dim(no_tweet_data)[1]
+```
+
+```{r}
+rare_event_count <- apply(tweet_mention_data,1, function(x) {sum(x)})
+length(which(rare_event_count<=40))
+
+length(which(rare_event_count<=40))/dim(no_tweet_data)[1]
+```
+
+
+
+#try the tweet
+```{r}
+
+rare_event_tweet <- apply(tweet_no_mention_data,1, function(x) {sum(x)/dim(tweet_mention_data)[2]})
+length(which(rare_event_tweet<=0.04))
+```
+
+
+
+
+```{r}
+library(abind)
+
+# Combine into a 3D array
+array_3D <- abind(no_tweet_data, tweet_no_mention_data, tweet_mention_data, along = 3)
+W_matrix <- array_3D[,,3] * 3 +  array_3D[,,2] * 2 + array_3D[,,1]
+
+#unique(unname(W_matrix))
+# no_tweet_data[1:5,1:10]
+# tweet_no_mention_data[1:5,1:10]
+# tweet_mention_data[1:5,1:10]
+# 
+# # Print the resulting array
+# array_3D[1:5,1:10,1]
+# array_3D[1:5,1:10,2]
+# array_3D[1:5,1:10,3]
+```
+
+
+#
+```{r}
+# set.seed(123)
+# data <- matrix(sample(0:1, 150, replace = TRUE), nrow = 5, ncol = 30)  # Replace this with your actual data
+#bin every three time points and find the probability
+# Function to calculate the sum of non-overlapping triplets along axis 1 for each row
+calculate_non_overlapping_triplet_sums <- function(data) {
+  n_rows <- nrow(data)
+  n_cols <- ncol(data)
+  
+  # Check if there are at least three columns for triplet calculation
+  if (n_cols < 3) {
+    stop("The data must have at least three timesteps for triplet calculations.")
+  }
+  
+  # Calculate the number of non-overlapping triplets in the data
+  num_triplets <- n_cols %/% 3
+  
+  # Initialize a matrix to store results for each row
+  triplet_sums <- matrix(NA, nrow = n_rows, ncol = num_triplets)
+  
+  # Loop through each row
+  for (i in 1:n_rows) {
+    for (j in 1:num_triplets) {
+      start_col <- (j - 1) * 3 + 1  # Calculate the start column for the current triplet
+      triplet_sums[i, j] <- sum(data[i, start_col:(start_col + 2)])
+    }
+  }
+  
+  return(triplet_sums)
+}
+
+# Calculate the non-overlapping triplet sums for the data
+# triplet_sums <- calculate_non_overlapping_triplet_sums(data)
+# triplet_sums
+```
+
+
+```{r}
+#2000/3=666.6. 666*3=1998
+# triplet_sums_no_tweet <- calculate_non_overlapping_triplet_sums(no_tweet_data[-c(indiv_one_cat,index_exclude),1:1998])
+# triplet_sums_no_mention <- calculate_non_overlapping_triplet_sums(tweet_no_mention_data[-c(indiv_one_cat,index_exclude),1:1998])
+# triplet_sums_mention <- calculate_non_overlapping_triplet_sums(tweet_mention_data[-c(indiv_one_cat,index_exclude),1:1998])
+
+
+triplet_sums_no_tweet <- calculate_non_overlapping_triplet_sums(no_tweet_data[,1:1998])
+triplet_sums_no_mention <- calculate_non_overlapping_triplet_sums(tweet_no_mention_data[,1:1998])
+triplet_sums_mention <- calculate_non_overlapping_triplet_sums(tweet_mention_data[,1:1998])
+```
+
+```{r}
+save(triplet_sums_no_tweet,triplet_sums_no_mention, triplet_sums_mention , file = "triplet_sum_over_time.RData")
+```
+
+
+
+#find probability
+```{r}
+# Now we want to calculate probablity based on the column (probablity for whole population at that timestep-triplet) 
+# unique_categories <- sort(unique(array(triplet_sums)))
+unique_categories <- c(0,1,2,3)
+
+# Function to calculate the fraction of times each integer in the given set appears in the vector
+calculate_fraction <- function(vector, given_set) {
+  total_length <- length(vector)
+  
+  # Calculate the fraction for each integer in the given set
+  fractions <- sapply(given_set, function(x) {
+    #sum(vector == x) / total_length
+     sum(vector == x) 
+  })
+  
+  # Create a named vector for clarity
+  names(fractions) <- paste0("(Sum=", given_set, ")")
+  
+  return(fractions)
+}
+
+```
+
+```{r}
+# lets apply it over the rows
+triplet_prob_no_tweet <- apply(triplet_sums_no_tweet, 1, function(x){calculate_fraction(x, unique_categories)})
+print(triplet_prob_no_tweet[,1:10])
+
+
+triplet_prob_no_mention <- apply(triplet_sums_no_mention, 1, function(x){calculate_fraction(x, unique_categories)})
+print(triplet_prob_no_mention[,1:10])
+
+triplet_prob_mention <- apply(triplet_sums_mention, 1, function(x){calculate_fraction(x, unique_categories)})
+print(triplet_prob_mention[,1:10])
+```
+
+```{r}
+save(triplet_sums_no_tweet, triplet_sums_no_mention, triplet_sums_mention,
+     triplet_prob_no_tweet , triplet_prob_no_mention, triplet_prob_mention, file="Triplet__Count_O.RData")
+```
+
+
+```{r}
+load("Triplet.RData")
+```
+
+
+
+#
+```{r}
+#estimate z and p
+source("/Users/xzhao17/Documents/GitHub/xc_cj_clustering_cfd/R/acj/gam_weekends.R")
+num_indv <- 3875
+timestamps01 <- as.numeric(noquote(colnames(no_tweet_data)))[1:1000]
+basis_size <- 25 
+#timeseries_length <- length(timestamps01)
+timeseries_length <- 1000
+method <- "REML"
+source("/Users/xzhao17/Documents/GitHub/xc_cj_clustering_cfd/R/acj/gam_weekends.R")
+source("/Users/xzhao17/Documents/GitHub/xc_cj_clustering_cfd/R/acj/time_track_function.R")
+ timeKeeperStart("Xiaoxia")
+ zp <- foreach (indv = 1:num_indv, .combine = cbind, .init = NULL, .packages = c("mgcv")) %dorng%
+    {
+      source("/Users/xzhao17/Documents/GitHub/xc_cj_clustering_cfd/R/acj/gam_weekends.R")
+
+      
+      # x1<- X[indv,,1]
+      # x2<- X[indv,,2]
+      # x3<- X[indv,,3]
+      
+      # x1 <- no_tweet_data[indv,]
+      # x2 <- tweet_no_mention_data[indv,]
+      # x3 <- tweet_mention_data[indv,]
+      #15 minutes, one day 24 hours is 96 data points, 5 days is 480 data points, two weekends days are 192 data points
+      # one week is 480+192 = 672 data points
+      #two week is 1344 data points
+      # three week is 2016 data points
+      #four week is 2688 data points
+      #maximum 2000 data points is 286 weeks
+      #weekend_vector <- c(rep(c(rep(0,480),rep(1,192)),4))[1:length(x1)]
+      
+      weekend_vector <- c(rep(c(rep(0,480),rep(1,192)),4))[96:(96+length(no_tweet_data)-1)][1:1000]
+      gam_result_1 <- RunGam_Day(timestamps01,  weekend_vector, no_tweet_data[indv,1:1000], "binomial", basis_size, method)
+      p1 <- gam_result_1$prob
+      p1_linpred <- gam_result_1$linpred
+      
+      gam_result_2 <- RunGam_Day(timestamps01,  weekend_vector, tweet_no_mention_data[indv,1:1000], "binomial", basis_size, method)
+      p2 <- gam_result_2$prob
+      p2_linpred <- gam_result_2$linpred
+      
+      gam_result_3 <- RunGam_Day(timestamps01,  weekend_vector, tweet_mention_data[indv,1:1000], "binomial", basis_size, method)
+      p3 <- gam_result_3$prob
+      p3_linpred <- gam_result_3$linpred
+      
+      # estimate the latent tranjecotries Z
+      denominator_p <- 1 + exp(p3_linpred)
+      z1 <- (p1_linpred-p3_linpred)-log( (1+exp(p1_linpred))/(denominator_p))
+      z2 <- (p2_linpred-p3_linpred)-log( (1+exp(p2_linpred))/(denominator_p))
+      
+      #psum <- p1 + p2 + p3
+      #return(c(c(z1,z2), cbind(p1/psum, p2/psum, p3/psum)))
+      return(c(c(z1,z2), cbind(p1/(p1 + p2 + p3), p2/(p1 + p2 + p3), p3/(p1 + p2 + p3))))
+    }
+  # Unravel the two variables from zp
+  z_rows_count <- timeseries_length * 2
+  Z <- array(zp[1:z_rows_count, ], c(z_rows_count, num_indv))
+  p <- array(t(matrix(zp[(z_rows_count + 1):dim(zp)[1], ], ncol=num_indv)), c(num_indv, timeseries_length, category_count))
+timeKeeperNext()  
+  Z1_est <- Z[1:timeseries_length,]
+  Z2_est <- Z[1:timeseries_length+timeseries_length,]
+  
+  p1_est <- t(p[,,1])
+  p2_est <- t(p[,,2])
+  p3_est <- t(p[,,3])
+```
+
+
+
+
+```{r}
+#1000
+#save(Z1_est, Z2_est, p1_est, p2_est, p3_est, file = "Twitter_Est.RData")
+save(Z1_est, Z2_est, p1_est, p2_est, p3_est, file = "Twitter_Est_1000.RData")
+```
+
+```{r}
+load("/Users/xzhao17/Documents/GitHub/xc_cj_clustering_cfd/R/acj/Twitter_ZP__WeekendCoeff_Final_Unique_Time_P.RData")
+```
+
+```{r}
+dim(Twitter_ZP__WeekendCoeff_Final_Unique_Time_P$p1_est)
+```
+
+
+```{r}
+#bin every three time points and find the probability
+# Function to calculate the sum of non-overlapping triplets along axis 1 for each row
+calculate_non_overlapping_triplet_prob <- function(data) {
+  n_rows <- nrow(data)
+  n_cols <- ncol(data)
+  
+  # Check if there are at least three columns for triplet calculation
+  if (n_cols < 3) {
+    stop("The data must have at least three timesteps for triplet calculations.")
+  }
+  
+  # Calculate the number of non-overlapping triplets in the data
+  num_triplets <- n_cols %/% 3
+  
+  # Initialize a matrix to store results for each row
+  #triplet_prob_array <- array(0, c(n_rows, num_triplets, 4))
+  
+  triplet_prob_zero <- matrix(NA, nrow = n_rows, ncol = num_triplets)
+  triplet_prob_one <- matrix(NA, nrow = n_rows, ncol = num_triplets)
+  triplet_prob_two <- matrix(NA, nrow = n_rows, ncol = num_triplets)
+  triplet_prob_three <- matrix(NA, nrow = n_rows, ncol = num_triplets)
+  
+  # Loop through each row
+  for (i in 1:n_rows) {
+    for (j in 1:num_triplets) {
+      start_col <- (j - 1) * 3 + 1  # Calculate the start column for the current triplet
+      triplet_prob_zero[i, j] <- (1 - data[i, start_col])*(1 - data[i,(start_col + 1)])*(1 - data[i, (start_col + 2)])
+       triplet_prob_one[i, j] <- (1 - data[i, start_col])*( data[i,(start_col + 1)])*(1 - data[i, (start_col+ 2)])+(1 - data[i, start_col])*(1 - data[i,(start_col + 1)])*( data[i, (start_col + 2)])+
+                                 ( data[i, start_col])*(1 - data[i,(start_col + 1)])*(1 - data[i, (start_col + 2)])
+      triplet_prob_two[i, j] <- (1 - data[i, start_col])*( data[i,(start_col + 1)])*( data[i, (start_col + 2)])+
+        ( data[i, start_col])*(1 - data[i,(start_col + 1)])*( data[i, (start_col + 2)])+
+        ( data[i, start_col])*( data[i,(start_col + 1)])*(1 - data[i, (start_col + 2)])
+      triplet_prob_three[i, j] <- ( data[i, start_col])*( data[i,(start_col + 1)])*( data[i, (start_col + 2)])
+      
+    }
+  }
+   # triplet_prob_array [,,1] <- triplet_prob_zero
+   # triplet_prob_array [,,2] <- triplet_prob_one
+   # triplet_prob_array [,,3] <- triplet_prob_two
+   # triplet_prob_array [,,4] <- triplet_prob_three
+   # triplet_prob_final <- rbind(rowSums(triplet_prob_zero), rowSums(triplet_prob_one),
+   #                             rowSums(triplet_prob_two), rowSums(triplet_prob_three))
+   
+    # triplet_prob_final <- rbind(0*rowSums(triplet_prob_zero)/num_triplets, 1*rowSums(triplet_prob_one)/num_triplets,
+    #                           2* rowSums(triplet_prob_two)/num_triplets, 3*rowSums(triplet_prob_three)/num_triplets)
+    triplet_prob_final <- rbind(0*rowSums(triplet_prob_zero), 1*rowSums(triplet_prob_one)/num_triplets,
+                               rowSums(triplet_prob_two)*num_triplets, rowSums(triplet_prob_three)*num_triplets)
+   rownames( triplet_prob_final) <- c ("Sum = 0", "Sum = 1" ,"Sum = 2", "Sum = 3")
+  return(triplet_prob_final)
+}
+```
+
+
+```{r}
+chi_square_no_tweet <- calculate_non_overlapping_triplet_prob (trueestf$Est$Estimatep_i1)
+
+# chi_square_no_tweet <- calculate_non_overlapping_triplet_prob (t(p1_est))
+```
+
+```{r}
+chi_square_no_mention <- calculate_non_overlapping_triplet_prob (trueestf$Est$Estimatep_i2)
+#chi_square_no_mention <- calculate_non_overlapping_triplet_prob (t(p2_est))
+```
+
+
+```{r}
+ chi_square_mention <- calculate_non_overlapping_triplet_prob (trueestf$Est$Estimatep_i3)
+
+#chi_square_mention <- calculate_non_overlapping_triplet_prob (t(p3_est))
+```
+
+```{r}
+# save(chi_square_no_tweet, chi_square_no_mention, chi_square_mention, file = "est_triplet_count.RData")
+
+# save(chi_square_no_tweet, chi_square_no_mention, chi_square_mention, file = "est_triplet_count_nodivision.RData")
+
+save(chi_square_no_tweet, chi_square_no_mention, chi_square_mention, file = "est_triplet_count_multiply.RData")
+```
+
+
+#find the chi square test statistic
+```{r}
+n_cols <- ncol(triplet_prob_no_tweet)
+ num_triplets <- n_cols %/% 3
+
+  # no_tweet_p_value <- num_triplets*apply((triplet_prob_no_tweet - chi_square_no_tweet)^2/chi_square_no_tweet,2, sum)
+  # no_mention_p_value <- num_triplets*apply((triplet_prob_no_mention - chi_square_no_mention)^2/chi_square_no_mention,2, sum)
+  # mention_p_value <- num_triplets*apply((triplet_prob_mention - chi_square_mention)^2/chi_square_mention,2, sum)
+  # 
+  no_tweet_p_value <- apply((triplet_prob_no_tweet - chi_square_no_tweet)^2/chi_square_no_tweet,2, sum)
+  no_mention_p_value <- apply((triplet_prob_no_mention - chi_square_no_mention)^2/chi_square_no_mention,2, sum)
+  mention_p_value <-apply((triplet_prob_mention - chi_square_mention)^2/chi_square_mention,2, sum)
+```
+
+#use estimate from gam weekends
+```{r}
+chi_square_no_tweet <- calculate_non_overlapping_triplet_prob (t(p1_est))
+chi_square_no_mention <- calculate_non_overlapping_triplet_prob (t(p2_est))
+chi_square_mention <- calculate_non_overlapping_triplet_prob (t(p3_est))
+
+n_cols <- ncol(triplet_prob_no_tweet)
+ num_triplets <- n_cols %/% 3
+
+  no_tweet_p_value <- num_triplets*apply((triplet_prob_no_tweet - chi_square_no_tweet)^2/chi_square_no_tweet,2, sum)
+  no_mention_p_value <- num_triplets*apply((triplet_prob_no_mention - chi_square_no_mention)^2/chi_square_no_mention,2, sum)
+  mention_p_value <- num_triplets*apply((triplet_prob_mention - chi_square_mention)^2/chi_square_mention,2, sum)
+
+  
+  num_indv <- dim(p1_est)[2]
+length(which(pchisq(q = no_tweet_p_value, df = 3, lower.tail = FALSE)<0.05))/num_indv
+
+length(which(pchisq(q = no_mention_p_value , df = 3, lower.tail = FALSE)<0.05))/num_indv
+
+length(which(pchisq(q = mention_p_value, df = 3, lower.tail = FALSE)<0.05))/num_indv
+```
+
+
+
+
+
+```{r}
+save (chi_square_no_tweet, chi_square_no_mention, chi_square_mention,
+      no_tweet_p_value,no_mention_p_value, mention_p_value, file = "chiq_square_est.RData")
+```
+
+
+```{r}
+load("chiq_square_est.RData")
+```
+
+
+#find the p value
+```{r}
+length(which(pchisq(q = no_tweet_p_value, df = 3, lower.tail = FALSE)<0.05))
+length(which(pchisq(q = no_mention_p_value , df = 3, lower.tail = FALSE)<0.05))
+length(which(pchisq(q = mention_p_value, df = 3, lower.tail = FALSE)<0.05))
+```
+
+<!-- [1] 2326 -->
+<!-- [1] 2268 -->
+<!-- [1] 93 -->
+
+```{r}
+critical_chi <- qchisq(0.05,3,lower.tail = FALSE)
+```
+
+```{r}
+mean(mention_p_value > critical_chi)
+```
+
+```{r}
+num_indv <- dim(chi_square_no_tweet)[2]
+length(which(pchisq(q = no_tweet_p_value, df = 3, lower.tail = FALSE)<0.05))/num_indv
+
+length(which(pchisq(q = no_mention_p_value , df = 3, lower.tail = FALSE)<0.05))/num_indv
+
+length(which(pchisq(q = mention_p_value, df = 3, lower.tail = FALSE)<0.05))/num_indv
+```
+
+
+
+```{r}
+num_indv <- dim(chi_square_no_tweet)[2]
+length(which(pchisq(q = no_tweet_p_value, df = 3, lower.tail = FALSE)<0.05))/num_indv
+
+length(which(pchisq(q = no_mention_p_value , df = 3, lower.tail = FALSE)<0.05))/num_indv
+
+length(which(pchisq(q = mention_p_value, df = 3, lower.tail = FALSE)<0.05))/num_indv
+```
+
+
+
+
+```{r}
+num_indv <- dim(chi_square_no_tweet)[2]
+length(which(pchisq(q = no_tweet_p_value, df = 3, lower.tail = FALSE)<0.05))/num_indv
+
+length(which(pchisq(q = no_mention_p_value , df = 3, lower.tail = FALSE)<0.05))/num_indv
+
+length(which(pchisq(q = mention_p_value, df = 3, lower.tail = FALSE)<0.05))/num_indv
+```
+
+<!-- [1] 0.6002581 -->
+<!-- [1] 0.5852903 -->
+<!-- [1] 0.024 -->
+
+
+```{r}
+par(mfrow= c(1,3))
+plot(1:num_indv,pchisq(q = no_tweet_p_value, df = 3, lower.tail = FALSE), main = "No Tweet", xlab = "Individual", ylab = "Probability",cex.lab = 1.5,cex.axis = 2,cex.main=2)
+abline(h = 0.05, col = "red", lwd = 2)
+plot(1:num_indv,pchisq(q = no_mention_p_value, df = 3, lower.tail = FALSE), main = "No Mention", xlab = "Individual", ylab = "Probability",cex.lab = 1.5,cex.axis = 2,cex.main=2)
+abline(h = 0.05, col = "red", lwd = 2)
+plot(1:num_indv,pchisq(q = mention_p_value, df = 3, lower.tail = FALSE), main = "Mention", xlab = "Individual", ylab = "Probability",cex.lab = 1.5,cex.axis = 2,cex.main=2)
+abline(h = 0.05, col = "red", lwd = 2)
+
+```
+```{r}
+#simulation
+eigen_score <- extract_scores_UNIVFPCA (t(trueestf$Est$EstimateZ_i1),t(trueestf$Est$EstimateZ_i2), timestamps01 , PVE=0.95)
+```
+```{r}
+par(mfrow = c(1,2))
+matplot(timestamps01,t(trueestf$Est$EstimateZ_i1),type='l', lty=1, col="light grey",
+        xlab = "Time", ylab = "Value", main = "Z1")
+#recover
+library(MASS)
+#n *4000
+Z_after <-  t(sqrt(length(timestamps01))*eigen_score $scores%*%ginv(eigen_score$Phi))
+matlines(timestamps01,Z_after[1:2000,],type='l', lty=1, col="light blue")
+
+
+matplot(timestamps01,t(trueestf$Est$EstimateZ_i2),type='l', lty=1, col="light grey",
+        xlab = "Time", ylab = "Value", main = "Z2")
+#recover
+matlines(timestamps01,Z_after[2001:4000,],type='l', lty=1, col="light blue")
+```
+```{r}
+par(mfrow = c(1,2))
+matplot(timestamps01,t(trueestf$Est$EstimateZ_i1)-Z_after[1:2000,],type='l', lty=1, col="light grey",
+        xlab = "Time", ylab = "Value", main = "Z1")
+#recover
+
+matplot(timestamps01,t(trueestf$Est$EstimateZ_i2)-Z_after[2001:4000,],type='l', lty=1, col="light grey",
+        xlab = "Time", ylab = "Value", main = "Z2")
+
+```
+

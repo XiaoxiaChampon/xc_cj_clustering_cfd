@@ -1,0 +1,3 @@
+exportPattern("^[[:alpha:]]+")
+importFrom(doRNG, "%dorng%")
+importFrom(foreach, foreach, "%do%")
