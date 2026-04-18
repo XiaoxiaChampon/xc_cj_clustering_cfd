@@ -1,6 +1,5 @@
 # Set default behavior to automatically normalize line endings
 * text=auto eol=lf
-
 # R files
 *.R text eol=lf
 *.r text eol=lf
@@ -8,20 +7,17 @@
 *.rmd text eol=lf
 *.Rnw text eol=lf
 *.rnw text eol=lf
-
 # Data files
 *.csv text eol=lf
 *.tsv text eol=lf
 *.txt text eol=lf
 *.md text eol=lf
-
 # Package files
 DESCRIPTION text eol=lf
 NAMESPACE text eol=lf
 NEWS text eol=lf
 README text eol=lf
 LICENSE text eol=lf
-
 # Binary files
 *.RData binary
 *.rda binary
@@ -31,10 +27,9 @@ LICENSE text eol=lf
 *.jpg binary
 *.jpeg binary
 *.pdf binary
-
 # Windows batch files should use CRLF
 *.bat text eol=crlf
 *.cmd text eol=crlf
-
 # Shell scripts should use LF
 *.sh text eol=lf
+submission_revision/data/processed/*.RData filter=lfs diff=lfs merge=lfs -text

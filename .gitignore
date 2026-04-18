@@ -1,5 +1,6 @@
-# ignore RData files
+# ignore RData files (except submission data tracked via Git LFS)
 *.RData
+!submission_revision/data/processed/*.RData
 
 # History files
 .Rhistory
